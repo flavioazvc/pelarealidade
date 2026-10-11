@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101112">
+  <meta name="description" content="Pela Realidade — central local para organizar campanhas de RPG investigativo.">
+  <title>Pela Realidade — Acesso Restrito</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Pular para o conteúdo</a>
+  <header class="topbar">
+    <a class="brand" href="#/" aria-label="Pela Realidade, início">
+      <span class="brand-mark" aria-hidden="true">PR</span>
+      <span class="brand-copy"><strong>Pela Realidade</strong><small>ACESSO RESTRITO</small></span>
+    </a>
+    <nav class="main-nav" aria-label="Navegação principal">
+      <a href="#/" data-route="home">Início</a>
+      <a href="#/campanhas" data-route="campaigns">Campanhas</a>
+      <a href="#/personagens" data-route="characters">Personagens</a>
+      <a href="#/sessoes" data-route="sessions">Sessões</a>
+      <a href="#/planejamento" data-route="planning">Planejamento</a>
+    </nav>
+    <div class="top-actions">
+      <div class="create-wrap">
+        <button id="create-toggle" class="button button-primary" type="button" aria-expanded="false" aria-controls="create-menu">＋ Criar</button>
+        <div id="create-menu" class="create-menu" hidden>
+          <button type="button" data-create="campaign">Nova campanha</button>
+          <button type="button" data-create="character">Nova ficha</button>
+          <button type="button" data-create="session">Nova sessão</button>
+          <button type="button" data-create="board">Abrir quadro de campanha</button>
+        </div>
+      </div>
+      <span class="local-badge"><i aria-hidden="true"></i> ARQUIVO LOCAL</span>
+    </div>
+  </header>
+  <main id="main" tabindex="-1"><div class="loading-state">Abrindo arquivo…</div></main>
+  <footer class="app-footer"><span>PELA REALIDADE <b>·</b> ARQUIVO DE OPERAÇÕES</span><span>Seus registros ficam neste navegador.</span></footer>
+  <dialog id="modal" class="modal" aria-labelledby="modal-title">
+    <div class="modal-frame">
+      <button class="modal-close" type="button" data-action="close-modal" aria-label="Fechar">×</button>
+      <div id="modal-body"></div>
+    </div>
+  </dialog>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script type="module" src="./src/app.js?v=7"></script>
+</body>
+</html>

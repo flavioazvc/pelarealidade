@@ -511,3 +511,39 @@ Não afirme que uma funcionalidade foi concluída se ela não tiver sido impleme
 O objetivo final é entregar uma primeira versão utilizável do **Pela Realidade — Acesso Restrito**, com estrutura sólida, identidade visual própria, dados persistentes e ferramentas úteis para a preparação de campanhas de Ordem Paranormal.
 
 Priorize uma aplicação funcional, confiável e expansível, em vez de uma interface visualmente impressionante, mas incompleta.
+
+
+---
+
+## Implementação inicial — instruções e limites
+
+A aplicação estática fica em `index.html`, `styles.css` e `src/`. Não exige build, backend, conta ou chave de serviço. Para executar localmente, rode `python3 -m http.server 8000` na raiz do repositório e abra `http://localhost:8000`.
+
+### Funcionalidades desta versão
+
+- Painel inicial sem conteúdo fictício; criação, consulta, edição e exclusão de campanhas, personagens e sessões.
+- Fichas independentes com associação/desassociação a várias campanhas. A ficha usa campos manuais de identificação, atributos, perícias, PV, PE, SAN, Defesa, NEX/nível, patente, poderes, inventário e notas.
+- Sessões vinculadas à campanha, com título, data opcional, descrição, anotações e estados Planejada, Realizada e Cancelada.
+- Um quadro em branco por campanha, com navegação, zoom, cartões móveis/redimensionáveis/coloridos, desenho livre, setas com rótulo editável e salvamento automático local.
+- Exportação e importação de backup JSON. Excluir campanha remove sessões e quadro, mas preserva as fichas e remove apenas suas associações.
+- Layout adaptável a telas menores; nenhuma tela ou funcionalidade de login foi criada.
+
+### Persistência e privacidade
+
+A gravação usa `localStorage` no navegador. Isso preserva os dados após recarga no mesmo navegador e origem, mas não sincroniza entre dispositivos. Não há servidor que receba registros, backup automático, criptografia, autenticação, permissões ou colaboração simultânea. Qualquer pessoa com acesso ao mesmo perfil de navegador/dispositivo pode ler ou apagar os dados. A interface e o código do site são públicos; os registros não são publicados pelo Pages porque permanecem no navegador. Exporte backups e não use dispositivos compartilhados para dados que precisem de sigilo. Veja `docs/DECISOES-TECNICAS.md` para as decisões e fontes consultadas.
+
+### Regras da ficha
+
+A referência declarada é **Ordem Paranormal RPG — Livro Básico, versão 1.3**, publicada no Registro de Atualizações da Jambô em 31/01/2025. A editora esclareceu que as correções de reimpressão não constituíam uma nova edição do sistema. Os valores da ficha são manuais; não há cálculos automáticos nem validação de combinações de regras. Consulte a cópia oficial da mesa e suas atualizações.
+
+### GitHub Pages
+
+O repositório já tem GitHub Pages configurado para publicar a branch `main` a partir da raiz (`/(root)`). Cada envio para `main` atualiza o site em <https://flavioazvc.github.io/pelarealidade/>. Os assets usam caminhos relativos e o roteamento usa fragmentos, compatíveis com a URL de projeto.
+
+### Verificações realizadas nesta primeira versão
+
+Foram exercitados no navegador isolado: criar campanha e recarregá-la; criar ficha com campanha pré-selecionada; criar sessão e mudar seu estado, conferindo os contadores; criar/mover cartões; ligar cartões e editar o rótulo da conexão; desenhar traço; excluir uma campanha e confirmar a remoção das sessões/quadro com preservação da ficha; e excluir os registros de teste. Também foi verificado por teste automatizado o ciclo exportar/importar JSON, a rejeição de estrutura inválida e a normalização de valores adulterados no quadro. O armazenamento de teste foi deixado vazio. Testes automatizados de regras, baterias extensivas de importação, leitores de tela e dispositivos físicos ainda não foram executados.
+
+### Limitações conhecidas
+
+Não há sincronização remota, autenticação, controle de acesso, backup automático, cálculos oficiais da ficha, uploads de imagens (a capa é uma URL HTTP/HTTPS), colaboração em tempo real nem importação de fichas existentes. Se o navegador apagar os dados do site ou a cota local for excedida, use o backup JSON para restaurar; a aplicação não oferece recuperação remota.
