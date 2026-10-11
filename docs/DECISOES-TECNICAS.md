@@ -24,3 +24,7 @@ Fontes consultadas:
 ## Compatibilidade
 
 O projeto não usa framework ou compilação. Os caminhos de recursos são relativos para funcionar na URL de projeto do Pages (`/<repositório>/`). O roteamento usa fragmentos (`#/...`), evitando necessidade de fallback de servidor. Os navegadores precisam suportar módulos JavaScript, `localStorage`, `structuredClone` e a API `<dialog>`.
+
+## Atmosfera visual
+
+O fundo paranormal é procedural, composto por CSS e SVG inline, sem imagens, fontes ou bibliotecas externas. Cada carregamento completo escolhe aleatoriamente uma de duas composições (véu rubro ou ruptura espectral): nuvens de fumaça desfocadas, filamentos vermelhos curvos que descem e clarões brancos intermitentes. A animação permanece sob o conteúdo, com superfícies escuras translúcidas e contraste de texto preservado. A preferência `prefers-reduced-motion` interrompe o movimento contínuo sem remover o fundo.
