@@ -7,35 +7,11 @@
   <meta name="description" content="Pela Realidade — central local para organizar campanhas de RPG investigativo.">
   <title>Pela Realidade — Acesso Restrito</title>
   <script>document.documentElement.dataset.atmosphere = Math.random() < .5 ? 'veil' : 'rift';</script>
-  <link rel="stylesheet" href="./styles.css?v=2">
+  <link rel="stylesheet" href="./styles.css?v=3">
 </head>
 <body>
   <div class="paranormal-atmosphere" aria-hidden="true">
-    <div class="atmosphere-mist atmosphere-mist--one"></div>
-    <div class="atmosphere-mist atmosphere-mist--two"></div>
-    <div class="atmosphere-mist atmosphere-mist--three"></div>
-    <svg class="atmosphere-energy" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
-      <defs>
-        <filter id="spectral-glow" x="-150%" y="-150%" width="400%" height="400%">
-          <feGaussianBlur stdDeviation="5" result="glow"></feGaussianBlur>
-          <feMerge><feMergeNode in="glow"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge>
-        </filter>
-      </defs>
-      <g class="energy-set energy-set--veil">
-        <path class="energy-curve" d="M245 -90 C390 95 95 155 260 335 C390 480 105 540 255 700 C370 830 140 900 270 1090"></path>
-        <path class="energy-curve energy-curve--secondary" d="M1000 -100 C865 85 1190 185 1010 360 C865 500 1215 580 1035 750 C900 875 1180 950 1035 1100"></path>
-        <path class="energy-curve energy-curve--tertiary" d="M1450 -120 C1325 60 1575 200 1415 365 C1260 530 1565 640 1405 800 C1300 910 1515 995 1435 1100"></path>
-        <g class="energy-burst energy-burst--one"><circle class="burst-halo" cx="1220" cy="285" r="72"></circle><circle class="burst-core" cx="1220" cy="285" r="5"></circle><path class="burst-spokes" d="M1220 224v35m0 52v39m-61-65h36m53 0h38m-109-43 25 25m36 37 29 29m-90 0 25-25m40-40 29-29"></path></g>
-        <g class="energy-burst energy-burst--two"><circle class="burst-halo" cx="365" cy="735" r="58"></circle><circle class="burst-core" cx="365" cy="735" r="4"></circle><path class="burst-spokes" d="M365 687v27m0 42v27m-48-48h28m40 0h28m-83-34 20 20m30 30 20 20m-70 0 20-20m30-30 20-20"></path></g>
-      </g>
-      <g class="energy-set energy-set--rift">
-        <path class="energy-curve" d="M515 -100 C205 80 785 210 430 380 C135 525 795 610 425 780 C190 890 650 975 390 1100"></path>
-        <path class="energy-curve energy-curve--secondary" d="M1260 -120 C1500 40 995 205 1315 360 C1580 490 1010 620 1295 770 C1510 885 1130 980 1260 1110"></path>
-        <path class="energy-curve energy-curve--tertiary" d="M90 -100 C310 55 60 250 225 400 C390 550 75 685 245 835 C355 930 150 1020 220 1100"></path>
-        <g class="energy-burst energy-burst--one"><circle class="burst-halo" cx="735" cy="300" r="84"></circle><circle class="burst-core" cx="735" cy="300" r="6"></circle><path class="burst-spokes" d="M735 228v40m0 66v42m-73-76h42m62 0h42m-124-52 30 30m43 43 30 30m-103 0 30-30m43-43 30-30"></path></g>
-        <g class="energy-burst energy-burst--two"><circle class="burst-halo" cx="1370" cy="710" r="64"></circle><circle class="burst-core" cx="1370" cy="710" r="5"></circle><path class="burst-spokes" d="M1370 656v31m0 47v31m-54-55h31m46 0h31m-96-40 22 22m35 35 22 22m-79 0 22-22m35-35 22-22"></path></g>
-      </g>
-    </svg>
+    <canvas class="atmosphere-canvas" id="storm-canvas"></canvas>
   </div>
   <a class="skip-link" href="#main">Pular para o conteúdo</a>
   <header class="topbar">
@@ -72,6 +48,7 @@
     </div>
   </dialog>
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script type="module" src="./src/atmosphere.js?v=3"></script>
   <script type="module" src="./src/app.js?v=7"></script>
 </body>
 </html>

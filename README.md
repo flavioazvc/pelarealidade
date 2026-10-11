@@ -40,7 +40,7 @@ A identidade visual deverá transmitir mistério, investigação, tensão e imer
 - Utilize cores de destaque discretas, como vermelho escuro, cinza-claro ou outras tonalidades coerentes com a identidade visual.
 - Trabalhe com tipografia legível, boa hierarquia visual, espaçamento consistente e contraste adequado.
 - Utilize elementos gráficos sutis que remetam a arquivos confidenciais, investigações, documentos, registros e fenômenos paranormais.
-- Use uma atmosfera animada de fumaça escura com filamentos vermelhos curvos descendentes e clarões brancos discretos; escolha aleatoriamente entre duas variações ao abrir ou atualizar o site. Mantenha os efeitos no fundo, com contraste suficiente para preservar a leitura, e respeite a preferência do navegador por movimento reduzido.
+- Use uma neblina de tempestade em movimento que cubra todo o fundo, misturando cores frias e quentes com relâmpagos breves. Escolha aleatoriamente entre duas paletas ao abrir ou atualizar o site. Mantenha os efeitos atrás do conteúdo e respeite a preferência do navegador por movimento reduzido; limite resolução e taxa de quadros para não prejudicar o desempenho.
 - Evite estética de terminal e excesso de efeitos decorativos. Prefira títulos editoriais, texto de interface sem serifa, áreas de toque maiores e hierarquia clara.
 - Mantenha a identidade visual consistente em todas as páginas.
 - Utilize ícones coerentes e componentes visuais reutilizáveis.
