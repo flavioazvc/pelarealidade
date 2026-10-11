@@ -1,5 +1,5 @@
-import { loadState, getState, getStorageError, commit, uid, subscribe, importArchive, exportArchive } from './store.js?v=2';
-import { mountBoard } from './board.js';
+import { loadState, getState, getStorageError, commit, uid, subscribe, importArchive, exportArchive } from './store.js?v=3';
+import { mountBoard } from './board.js?v=2';
 
 const main = document.querySelector('#main');
 const modal = document.querySelector('#modal');
@@ -19,8 +19,14 @@ function routeInfo() {
   return { name: bits[0] || 'home', id: bits[1] || null };
 }
 function stat(label,value) { return `<div class="metric"><span class="metric-label">${label}</span><strong class="metric-value">${value}</strong></div>`; }
-function empty(title, message, actions='') { return `<div class="empty-state"><div class="empty-mark">NENHUM REGISTRO</div><h3>${title}</h3><p>${message}</p>${actions?`<div class="empty-actions">${actions}</div>`:''}</div>`; }
-function header(title, eyebrow, lede='', actions='') { return `<header class="page-head"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1>${lede?`<p class="lede">${lede}</p>`:''}</div>${actions?`<div class="page-head-actions">${actions}</div>`:''}</header>`; }
+function empty(title, message, actions='') {
+  return `<div class="empty-state"><h3>${title}</h3><p>${message}</p>${actions?`<div class="empty-actions">${actions}</div>`:''}</div>`;
+}
+
+function header(title, _eyebrow, lede='', actions='') {
+  return `<header class="page-head"><div><h1>${title}</h1>${lede?`<p class="lede">${lede}</p>`:''}</div>${actions?`<div class="page-head-actions">${actions}</div>`:''}</header>`;
+}
+
 function render() {
   const r=routeInfo();
   if (activeBoardDispose) { activeBoardDispose(); activeBoardDispose=null; }
@@ -46,45 +52,129 @@ function render() {
 function navRoute(r) { if(r.name==='campanha') return 'campaigns'; if(r.name==='personagem') return 'characters'; return ({home:'home',campanhas:'campaigns',personagens:'characters',sessoes:'sessions',planejamento:'planning'})[r.name] || ''; }
 
 function renderHome(data) {
-  const allSessions=[...data.sessions].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  const future=allSessions.filter(s=>s.date && new Date(s.date)>=new Date() && s.status==='Planejada').slice(0,3);
-  const recent=[...data.campaigns.map(x=>({...x,_type:'Campanha'})),...data.characters.map(x=>({...x,_type:'Ficha'})),...data.sessions.map(x=>({...x,_type:'Sessão'}))].sort((a,b)=>(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')).slice(0,4);
-  const hasData=data.campaigns.length||data.characters.length||data.sessions.length;
-  const emptyActions=`<button class="button button-primary" data-create="campaign">＋ Nova campanha</button><button class="button" data-create="character">＋ Nova ficha</button>`;
-  return `<section class="page">
-    <div class="hero"><div class="eyebrow">CENTRAL DE OPERAÇÕES · REGISTRO LOCAL</div><h1>Organize o que ainda não foi revelado.</h1><p>Campanhas, personagens, sessões e planejamento narrativo em um único arquivo de trabalho — guardado neste navegador.</p><button class="button button-primary" data-create="campaign">＋ Iniciar uma campanha</button></div>
-    <div class="metrics">${stat('Campanhas',data.campaigns.length)}${stat('Personagens',data.characters.length)}${stat('Sessões registradas',data.sessions.length)}</div>
-    ${!hasData?empty('Seu arquivo está vazio.','Crie a primeira campanha ou registre uma ficha. Nada será preenchido automaticamente.',emptyActions):''}
-    <div class="content-grid">
-      <section class="panel"><div class="panel-heading"><h2>Campanhas</h2><a class="link-subtle" href="#/campanhas">VER ARQUIVO →</a></div>${data.campaigns.length?`<div class="card-list">${data.campaigns.slice().sort(byUpdated).slice(0,4).map(c=>campaignRow(c,data)).join('')}</div>`:empty('Sem campanhas','Uma campanha mantém suas sessões e seu quadro geral organizados.',`<button class="button button-sm" data-create="campaign">Criar campanha</button>`)}</section>
-      <section class="panel"><div class="panel-heading"><h2>Próximas sessões</h2><a class="link-subtle" href="#/sessoes">ABRIR →</a></div>${future.length?`<div class="card-list">${future.map(s=>sessionRow(s,data)).join('')}</div>`:empty('Agenda sem sessões','As sessões planejadas aparecerão aqui quando você as registrar.',data.campaigns.length?`<button class="button button-sm" data-create="session">Criar sessão</button>`:'')}</section>
+  const recent=[...data.campaigns.map(x=>({...x,_type:'Campanha'})),...data.characters.map(x=>({...x,_type:'Ficha'})),...data.sessions.map(x=>({...x,_type:'Sessão'}))]
+    .sort((a,b)=>(b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'')).slice(0,5);
+  return `<section class="page home-page">
+    <div class="home-overview">
+      <div class="welcome-panel"><h1>Bem-vindo, Flávio.</h1></div>
+      <div class="metrics home-metrics">${stat('Campanhas',data.campaigns.length)}${stat('Personagens',data.characters.length)}${stat('Sessões registradas',data.sessions.length)}</div>
     </div>
-    <section class="section-head"><h2>Modificado recentemente</h2><a class="link-subtle" href="#/personagens">BIBLIOTECA →</a></section>
-    ${recent.length?`<div class="card-list">${recent.map(item=>`<a class="record-card" href="${item._type==='Campanha'?`#/campanha/${encodeURIComponent(item.id)}`:item._type==='Ficha'?`#/personagem/${encodeURIComponent(item.id)}`:`#/sessoes`}"><div class="record-main"><h3>${esc(item.name||item.title)}</h3><div class="record-meta"><span>${item._type.toUpperCase()}</span><span>ATUALIZADO ${fmtDate(item.updatedAt||item.createdAt)}</span></div></div><span class="tag gray">ABRIR →</span></a>`).join('')}</div>`:empty('Ainda sem atividade','Quando você editar seus registros, os itens recentes aparecerão aqui.')}
-    <div class="callout"><strong>Armazenamento local:</strong> os dados ficam apenas neste navegador. Exporte um arquivo JSON para fazer uma cópia de segurança. <button class="button button-sm button-quiet" data-action="export">Exportar arquivo</button> <button class="button button-sm button-quiet" data-action="import">Importar arquivo</button></div>
+    <div class="home-dashboard">
+      <section class="home-recent-panel">
+        <div class="section-head"><h2>Modificado recentemente</h2></div>
+        ${recent.length?`<div class="card-list">${recent.map(item=>`<a class="record-card home-record-card" href="${item._type==='Campanha'?`#/campanha/${encodeURIComponent(item.id)}`:item._type==='Ficha'?`#/personagem/${encodeURIComponent(item.id)}`:'#/sessoes'}"><div class="record-main"><h3>${esc(item.name||item.title)}</h3><div class="record-meta"><span>${item._type}</span><span>Atualizado em ${fmtDate(item.updatedAt||item.createdAt)}</span></div></div><span class="tag gray">Abrir →</span></a>`).join('')}</div>`:empty('Nada modificado recentemente','Os registros aparecerão aqui quando você adicionar ou editar campanhas, personagens ou sessões.')}
+      </section>
+      <section class="home-maintenance-panel"><h2>Logins e senhas</h2><p>Em manutenção</p></section>
+    </div>
   </section>`;
 }
-function campaignRow(c,data) { const chars=data.characters.filter(ch=>(ch.campaignIds||[]).includes(c.id)).length; const sessions=data.sessions.filter(s=>s.campaignId===c.id).length; return `<a class="record-card" href="#/campanha/${encodeURIComponent(c.id)}"><div class="record-start">${c.cover?`<img class="campaign-cover" src="${safeImage(c.cover)}" alt="" loading="lazy">`:''}<div class="record-main"><h3>${esc(c.name)}</h3><p>${esc(c.description||'Sem descrição registrada.')}</p><div class="record-meta"><span>${chars} FICHAS</span><span>${sessions} SESSÕES</span><span>ATUALIZADO ${fmtDate(c.updatedAt||c.createdAt)}</span></div></div></div><span class="tag gray">ABRIR →</span></a>`; }
+
+function campaignCard(c,data) {
+  const chars=data.characters.filter(ch=>(ch.campaignIds||[]).includes(c.id)).length;
+  const cover=safeImage(c.cover);
+  const art=cover?`<img src="${cover}" alt="Capa da campanha ${esc(c.name)}" loading="lazy">`:`<div class="campaign-art-placeholder" aria-hidden="true"><span>${initials(c.name)}</span></div>`;
+  return `<a class="campaign-card" href="#/campanha/${encodeURIComponent(c.id)}">
+    <div class="campaign-art">${art}</div>
+    <div class="campaign-card-content"><h2>${esc(c.name)}</h2><p>${esc(c.description||'Sem descrição registrada.')}</p>
+      <div class="campaign-card-meta"><span>${chars} ${chars===1?'ficha':'fichas'}</span><span>Criada em ${fmtDate(c.createdAt,{dateStyle:'medium'})}</span></div>
+    </div>
+  </a>`;
+}
+
 function sessionRow(s,data) { const c=data.campaigns.find(x=>x.id===s.campaignId); return `<a class="record-card" href="#/sessoes"><div class="record-main"><h3>${esc(s.title)}</h3><p>${esc(c?.name||'Campanha removida')} · ${esc(s.status)}</p><div class="record-meta"><span>${s.date?fmtDate(s.date,{dateStyle:'medium',timeStyle:'short'}):'DATA A DEFINIR'}</span></div></div><span class="tag ${s.status==='Realizada'?'green':s.status==='Cancelada'?'red':'gray'}">${esc(s.status)}</span></a>`; }
 function renderCampaigns(data) {
-  return `<section class="page">${header('Campanhas','ARQUIVO DE CAMPANHAS','Cada campanha tem seu próprio conjunto de sessões e um quadro geral vazio.',`<button class="button button-primary" data-create="campaign">＋ Nova campanha</button>`)}${data.campaigns.length?`<div class="card-list">${data.campaigns.slice().sort(byUpdated).map(c=>campaignRow(c,data)).join('')}</div>`:empty('Nenhuma campanha cadastrada','Comece criando uma campanha. O quadro associado começará vazio.',`<button class="button button-primary" data-create="campaign">＋ Criar campanha</button>`)}</section>`;
+  const actions=`<button class="button button-primary" data-create="campaign">＋ Nova campanha</button>`;
+  return `<section class="page"><div class="page-head"><div><h1>Campanhas</h1></div><div class="page-head-actions">${actions}</div></div>
+    ${data.campaigns.length?`<div class="campaign-grid">${data.campaigns.slice().sort(byUpdated).map(c=>campaignCard(c,data)).join('')}</div>`:empty('Nenhuma campanha cadastrada','Crie uma campanha para começar a organizar fichas e sessões.',`<button class="button button-primary" data-create="campaign">＋ Criar campanha</button>`)}</section>`;
 }
+
 function renderCampaignDetail(data,id) {
-  const c=data.campaigns.find(x=>x.id===id); if(!c) return `<section class="page">${empty('Campanha não encontrada','Ela pode ter sido removida.',`<a href="#/campanhas" class="button">Ver campanhas</a>`)}</section>`;
-  const chars=data.characters.filter(ch=>(ch.campaignIds||[]).includes(c.id)); const sessions=data.sessions.filter(s=>s.campaignId===c.id).sort(byDate);
-  return `<section class="page">
-    <div class="detail-banner">${c.cover?`<img class="campaign-cover" style="width:72px;height:72px" src="${safeImage(c.cover)}" alt="Capa de ${esc(c.name)}">`:''}<div style="flex:1"><div class="eyebrow">REGISTRO DE CAMPANHA · ${fmtDate(c.createdAt)}</div><h1>${esc(c.name)}</h1><p class="detail-text">${esc(c.description||'Nenhuma descrição registrada.')}</p><div class="record-meta"><span>ATUALIZADO ${fmtDate(c.updatedAt||c.createdAt)}</span><span>${chars.length} PERSONAGENS · ${sessions.length} SESSÕES</span></div></div><div class="record-actions"><button class="button button-sm" data-action="edit-campaign" data-id="${esc(c.id)}">Editar</button><button class="button button-sm" data-action="delete-campaign" data-id="${esc(c.id)}">Excluir</button></div></div>
+  const c=data.campaigns.find(x=>x.id===id);
+  if(!c) return `<section class="page">${empty('Campanha não encontrada','Ela pode ter sido removida.',`<a href="#/campanhas" class="button">Ver campanhas</a>`)}</section>`;
+  const chars=data.characters.filter(ch=>(ch.campaignIds||[]).includes(c.id));
+  const sessions=data.sessions.filter(session=>session.campaignId===c.id).sort(byDate);
+  const cover=safeImage(c.cover);
+  const campaignArt=cover?`<img src="${cover}" alt="Capa de ${esc(c.name)}">`:`<div class="campaign-art-placeholder" aria-hidden="true"><span>${initials(c.name)}</span></div>`;
+  return `<section class="page campaign-detail-page">
+    <div class="campaign-detail-banner">
+      <div class="campaign-detail-cover">${campaignArt}</div>
+      <div class="campaign-detail-copy"><h1>${esc(c.name)}</h1><p class="detail-text">${esc(c.description||'Nenhuma descrição registrada.')}</p>
+        <div class="campaign-detail-meta"><span>Criada em ${fmtDate(c.createdAt,{dateStyle:'medium'})}</span><span>${chars.length} ${chars.length===1?'ficha':'fichas'}</span><span>${sessions.length} ${sessions.length===1?'sessão':'sessões'}</span></div>
+      </div>
+      <div class="campaign-detail-actions"><button class="button button-sm" data-action="edit-campaign" data-id="${esc(c.id)}">Editar</button><button class="button button-sm button-danger" data-action="delete-campaign" data-id="${esc(c.id)}">Excluir</button></div>
+    </div>
     <div class="tabs"><a class="active" href="#/campanha/${encodeURIComponent(c.id)}">Visão geral</a><a href="#/planejamento/${encodeURIComponent(c.id)}">Quadro de planejamento</a><a href="#/sessoes">Sessões</a></div>
-    <div class="content-grid"><section class="panel"><div class="panel-heading"><h2>Personagens associados</h2><button class="button button-sm" data-create="character" data-campaign="${esc(c.id)}">＋ Nova ficha vinculada</button></div>${chars.length?`<div class="card-list">${chars.map(ch=>`<div class="record-card"><a class="record-main" href="#/personagem/${encodeURIComponent(ch.id)}"><h3>${esc(ch.name)}</h3><p>${esc([ch.origin,ch.className,ch.path].filter(Boolean).join(' · ')||'Ficha em branco')}</p></a><button class="button button-sm" data-action="unlink-character" data-id="${esc(ch.id)}" data-campaign="${esc(c.id)}">Desassociar</button></div>`).join('')}</div>`:empty('Nenhuma ficha associada','Você pode associar uma ficha da biblioteca. A ficha continua independente da campanha.',`<button class="button button-sm" data-create="character" data-campaign="${esc(c.id)}">Criar ficha vinculada</button>`)}</section>
-    <section class="panel"><div class="panel-heading"><h2>Sessões</h2><button class="button button-sm" data-create="session" data-campaign="${esc(c.id)}">＋ Nova sessão</button></div>${sessions.length?`<div class="card-list">${sessions.map(s=>sessionRow(s,data)).join('')}</div>`:empty('Nenhuma sessão registrada','As sessões que você criar para esta campanha aparecerão aqui.',`<button class="button button-sm" data-create="session" data-campaign="${esc(c.id)}">Criar sessão</button>`)}</section></div>
-    <section class="panel" style="margin-top:16px"><div class="panel-heading"><h2>Quadro geral de planejamento</h2><span class="tag gray">UM QUADRO · ESTA CAMPANHA</span></div><p class="detail-text">O canvas é independente das sessões. Ele começa vazio e salva cartões, traços e conexões no armazenamento local.</p><a class="button button-primary" href="#/planejamento/${encodeURIComponent(c.id)}">Abrir quadro →</a></section>
+    <div class="campaign-detail-grid">
+      <section class="panel campaign-characters-panel"><div class="panel-heading"><h2>Personagens</h2><button class="button button-sm" data-create="character" data-campaign="${esc(c.id)}">＋ Nova ficha vinculada</button></div>
+        ${chars.length?`<div class="linked-character-list">${chars.map(ch=>linkedCharacterCard(ch,c.id)).join('')}</div>`:empty('Nenhum personagem','Associe uma ficha existente ou crie uma ficha para esta campanha.')}
+      </section>
+      <section class="panel campaign-sessions-panel"><div class="panel-heading"><h2>Sessões</h2></div>
+        ${sessions.length?`<div class="card-list">${sessions.map(session=>sessionRow(session,data)).join('')}</div>`:empty('Nenhuma sessão registrada','As sessões desta campanha aparecerão aqui.')}
+      </section>
+    </div>
+    <section class="panel campaign-board-panel"><div class="panel-heading"><h2>Quadro de planejamento</h2><span class="tag gray">${getState().boards[c.id]?.cards?.length||0} cartões</span></div><p class="detail-text">O quadro é independente das sessões e salva cartões, traços e conexões neste navegador.</p><a class="button button-primary" href="#/planejamento/${encodeURIComponent(c.id)}">Abrir quadro →</a></section>
   </section>`;
 }
-function renderCharacters(data) { return `<section class="page">${header('Personagens','BIBLIOTECA DE FICHAS','Fichas independentes das campanhas; uma ficha pode ser associada a mais de uma.',`<button class="button button-primary" data-create="character">＋ Nova ficha</button>`)}<div class="search-row"><label class="field" style="max-width:360px;flex:1"><span>Pesquisar por nome</span><input id="character-search" type="search" placeholder="Nome do personagem" autocomplete="off"></label><span class="tag gray">${data.characters.length} FICHAS</span></div><div id="character-results">${characterRecords(data,searchText)}</div></section>`; }
-function characterRecords(data,query='') { const list=data.characters.filter(ch=>ch.name.toLowerCase().includes((query||'').trim().toLowerCase())).sort(byUpdated); if(!list.length) return empty(query?'Nenhum resultado':'Biblioteca vazia',query?'Tente outra busca.':'Cadastre fichas sem associá-las automaticamente a uma campanha.',query?'':`<button class="button button-primary" data-create="character">＋ Criar ficha</button>`); return `<div class="card-list">${list.map(ch=>`<div class="record-card"><a class="record-main" href="#/personagem/${encodeURIComponent(ch.id)}"><h3>${esc(ch.name)}</h3><p>${esc([ch.origin,ch.className,ch.path].filter(Boolean).join(' · ')||'Identificação pendente')}</p><div class="record-meta"><span>${(ch.campaignIds||[]).length} CAMPANHAS</span><span>ATUALIZADO ${fmtDate(ch.updatedAt||ch.createdAt)}</span></div></a><div class="record-actions"><button class="button button-sm" data-action="edit-character" data-id="${esc(ch.id)}">Editar</button><button class="button button-sm" data-action="delete-character" data-id="${esc(ch.id)}">Excluir</button></div></div>`).join('')}</div>`; }
+
+function linkedCharacterCard(ch,campaignId) {
+  const attrs=ch.attributes||{};
+  const stats=[['NEX',ch.nex||ch.level],['PV',ch.pv],['PE',ch.pe],['SAN',ch.san],['Defesa',ch.defense]];
+  return `<article class="linked-character-card">
+    <div class="linked-character-heading">${portraitMarkup(ch,'linked-character-portrait')}<div class="linked-character-title"><h3>${esc(ch.name)}</h3><p>${esc([ch.origin,ch.className,ch.path].filter(Boolean).join(' · ')||'Classe não informada')}</p>${ch.playerName?`<span>Jogador: ${esc(ch.playerName)}</span>`:''}</div>
+      <div class="linked-character-actions"><a class="button button-sm" href="#/personagem/${encodeURIComponent(ch.id)}">Ficha completa →</a><button class="button button-sm" data-action="unlink-character" data-id="${esc(ch.id)}" data-campaign="${esc(campaignId)}">Desassociar</button></div>
+    </div>
+    <div class="linked-character-stats">${stats.map(([label,value])=>`<div class="character-stat"><span>${label}</span><strong>${esc(value||'—')}</strong></div>`).join('')}</div>
+    <div class="linked-character-attributes">${['Agilidade','Força','Intelecto','Presença','Vigor'].map(name=>`<div class="character-attribute"><span>${name}</span><strong>${esc(attrs[name]||'—')}</strong></div>`).join('')}</div>
+  </article>`;
+}
+
+function portraitMarkup(ch,className='character-portrait') {
+  const image=safeImage(ch.portrait);
+  return image?`<img class="${className}" src="${image}" alt="" loading="lazy">`:`<div class="${className} portrait-placeholder" aria-hidden="true"><span>${initials(ch.name)}</span></div>`;
+}
+
+function initials(value) {
+  return String(value||'PR').trim().split(/\s+/).slice(0,2).map(part=>part.charAt(0)).join('').toLocaleUpperCase('pt-BR')||'PR';
+}
+
+function renderCharacters(data) {
+  const actions=`<button class="button button-primary" data-create="character">＋ Nova ficha</button>`;
+  return `<section class="page"><div class="page-head"><div><h1>Personagens</h1></div><div class="page-head-actions">${actions}</div></div>
+    <div class="search-row"><label class="field" style="max-width:420px;flex:1"><span>Pesquisar por nome</span><input id="character-search" type="search" placeholder="Nome do personagem" autocomplete="off"></label><span class="tag gray">${data.characters.length} fichas</span></div>
+    <div id="character-results">${characterRecords(data,searchText)}</div>
+  </section>`;
+}
+
+function characterRecords(data,query='') {
+  const list=data.characters.filter(ch=>ch.name.toLowerCase().includes((query||'').trim().toLowerCase())).sort(byUpdated);
+  if(!list.length) return empty(query?'Nenhum resultado':'Nenhum personagem cadastrado',query?'Tente outra busca.':'Crie uma ficha para começar.',query?'':`<button class="button button-primary" data-create="character">＋ Criar ficha</button>`);
+  return `<div class="character-grid">${list.map(ch=>`<article class="character-card">
+    <div class="character-card-body"><a class="character-identity" href="#/personagem/${encodeURIComponent(ch.id)}">${portraitMarkup(ch)}<span class="character-copy"><strong>${esc(ch.name)}</strong><span class="character-class">${esc(ch.className||'Classe não informada')}</span>${ch.path?`<span class="character-path">${esc(ch.path)}</span>`:''}</span></a>
+      <div class="character-player"><span>Jogador</span><strong>${esc(ch.playerName||'Não informado')}</strong></div>
+    </div>
+    <div class="character-card-footer"><span class="tag gray">${(ch.campaignIds||[]).length} ${(ch.campaignIds||[]).length===1?'campanha':'campanhas'}</span><div class="record-actions"><button class="button button-sm" data-action="edit-character" data-id="${esc(ch.id)}">Editar</button><button class="button button-sm" data-action="delete-character" data-id="${esc(ch.id)}">Excluir</button></div></div>
+  </article>`).join('')}</div>`;
+}
+
 function renderCharacterDetail(data,id) { const ch=data.characters.find(x=>x.id===id); if(!ch) return `<section class="page">${empty('Ficha não encontrada','Ela pode ter sido removida.',`<a href="#/personagens" class="button">Ver biblioteca</a>`)}</section>`; const linked=data.campaigns.filter(c=>(ch.campaignIds||[]).includes(c.id)); const attributes=ch.attributes||{}; return `<section class="page">${header(esc(ch.name),'FICHA DE PERSONAGEM',`${esc(ch.origin||'Origem não informada')} · ${esc(ch.className||'Classe não informada')} · ${esc(ch.path||'Trilha não informada')}`,`<button class="button" data-action="edit-character" data-id="${esc(ch.id)}">Editar ficha</button><button class="button button-danger" data-action="delete-character" data-id="${esc(ch.id)}">Excluir ficha</button>`)}<div class="notice">Referência: Livro Básico de Ordem Paranormal RPG, versão 1.3. Os valores e regras são registros manuais; esta aplicação não calcula derivados.</div><div class="metrics">${stat('NEX / nível',esc(ch.nex||ch.level||'—'))}${stat('PV',esc(ch.pv||'—'))}${stat('PE',esc(ch.pe||'—'))}</div><div class="content-grid"><section class="panel"><h2>Atributos</h2><div class="rule-fields">${['Agilidade','Força','Intelecto','Presença','Vigor'].map(a=>`<div class="field"><label>${a}</label><input value="${esc(attributes[a]||'')}" readonly aria-label="${a}, anotação manual"></div>`).join('')}</div><div class="detail-columns"><div><h3>Defesa / SAN</h3><p class="detail-text">Defesa: ${esc(ch.defense||'—')} · SAN: ${esc(ch.san||'—')}</p><h3>Patente / progressão</h3><p class="detail-text">${esc(ch.rank||'—')} · ${esc(ch.progress||'—')}</p></div><div><h3>Origem · Classe · Trilha</h3><p class="detail-text">${esc([ch.origin,ch.className,ch.path].filter(Boolean).join(' · ')||'Não informado')}</p></div></div></section><section class="panel"><h2>Perícias</h2><p class="detail-text">${esc(ch.skills||'Nenhuma anotação.')}</p><h2 style="margin-top:20px">Habilidades e poderes</h2><p class="detail-text">${esc(ch.abilities||'Nenhuma anotação.')}</p></section><section class="panel"><h2>Inventário e equipamentos</h2><p class="detail-text">${esc(ch.inventory||'Nenhuma anotação.')}</p></section><section class="panel"><h2>Notas</h2><p class="detail-text">${esc(ch.notes||'Nenhuma anotação.')}</p></section></div><section class="panel" style="margin-top:16px"><div class="panel-heading"><h2>Campanhas associadas</h2><span class="tag gray">${linked.length} ASSOCIAÇÃO(ÕES)</span></div>${linked.length?`<div class="chip-list">${linked.map(c=>`<a class="tag" href="#/campanha/${encodeURIComponent(c.id)}">${esc(c.name)}</a>`).join('')}</div>`:empty('Ficha independente','Esta ficha ainda não está associada a nenhuma campanha.',`<button class="button button-sm" data-action="edit-character" data-id="${esc(ch.id)}">Associar a campanha</button>`)}</section></section>`; }
 function renderSessions(data) { const list=data.sessions.slice().sort(byDate); return `<section class="page">${header('Sessões','CADERNO DE SESSÕES','Registre data, estado e anotações sem conteúdo narrativo automático.',`<button class="button button-primary" data-create="session">＋ Nova sessão</button>`)}<div class="tabs"><span class="active">Todas · ${list.length}</span><span>Planejadas · ${list.filter(s=>s.status==='Planejada').length}</span><span>Realizadas · ${list.filter(s=>s.status==='Realizada').length}</span><span>Canceladas · ${list.filter(s=>s.status==='Cancelada').length}</span></div>${list.length?`<div class="card-list">${list.map(s=>`<article class="record-card"><div class="record-main"><h3>${esc(s.title)}</h3><p>${esc(data.campaigns.find(c=>c.id===s.campaignId)?.name||'Campanha removida')} · ${esc(s.description||'Sem descrição.')}</p><div class="record-meta"><span>${s.date?fmtDate(s.date,{dateStyle:'medium',timeStyle:'short'}):'DATA A DEFINIR'}</span><span>${(s.notes||'').length} CARACTERES DE ANOTAÇÕES</span></div></div><div class="record-actions"><select class="status-select" data-session-status="${esc(s.id)}" aria-label="Estado da sessão">${['Planejada','Realizada','Cancelada'].map(v=>`<option ${s.status===v?'selected':''}>${v}</option>`).join('')}</select><button class="button button-sm" data-action="edit-session" data-id="${esc(s.id)}">Editar</button><button class="button button-sm" data-action="delete-session" data-id="${esc(s.id)}">Excluir</button></div></article>`).join('')}</div>`:empty('Nenhuma sessão cadastrada','Crie uma sessão vinculada a uma campanha existente.',data.campaigns.length?`<button class="button button-primary" data-create="session">＋ Criar sessão</button>`:`<button class="button" data-create="campaign">Criar uma campanha primeiro</button>`)}</section>`; }
-function renderPlanning(data) { return `<section class="page">${header('Quadros de planejamento','ESPAÇO DE INVESTIGAÇÃO','Cada campanha tem um quadro próprio, vazio até você inserir seus elementos.',`<a href="#/campanhas" class="button">Ver campanhas</a>`)}${data.campaigns.length?`<div class="card-list">${data.campaigns.map(c=>`<a class="record-card" href="#/planejamento/${encodeURIComponent(c.id)}"><div class="record-main"><h3>${esc(c.name)}</h3><p>Quadro geral · ${data.boards[c.id]?.cards?.length||0} cartões · ${data.boards[c.id]?.links?.length||0} conexões</p></div><span class="tag gray">ABRIR QUADRO →</span></a>`).join('')}</div>`:empty('Crie uma campanha para abrir um quadro','Cada quadro é criado junto com sua campanha e começa completamente vazio.',`<button class="button button-primary" data-create="campaign">＋ Criar campanha</button>`)}</section>`; }
+function renderPlanning(data) {
+  const actions=`<a href="#/campanhas" class="button">Ver campanhas</a>`;
+  return `<section class="page"><div class="page-head"><div><h1>Planejamento</h1></div><div class="page-head-actions">${actions}</div></div>
+    ${data.campaigns.length?`<div class="planning-grid">${data.campaigns.slice().sort(byUpdated).map(c=>{const board=data.boards[c.id]||{cards:[],paths:[],links:[]};const cardWord=board.cards.length===1?'cartão':'cartões';const linkWord=board.links.length===1?'conexão':'conexões';return `<a class="planning-card" href="#/planejamento/${encodeURIComponent(c.id)}">${boardPreviewMarkup(board)}<div class="planning-card-content"><h2>${esc(c.name)}</h2><p>${board.cards.length} ${cardWord} · ${board.links.length} ${linkWord}</p><span class="tag gray">Abrir quadro →</span></div></a>`;}).join('')}</div>`:empty('Nenhuma campanha para planejar','Crie uma campanha para ter um quadro próprio.',`<button class="button button-primary" data-create="campaign">＋ Criar campanha</button>`)}</section>`;
+}
+
+function boardPreviewMarkup(board) {
+  const cards=(board.cards||[]).slice(0,24), paths=(board.paths||[]).slice(0,18), links=(board.links||[]).slice(0,36);
+  const cardById=new Map(cards.map(card=>[card.id,card]));
+  const lines=links.map(link=>{const a=cardById.get(link.from),b=cardById.get(link.to);if(!a||!b)return '';return `<line x1="${a.x+a.w/2}" y1="${a.y+a.h/2}" x2="${b.x+b.w/2}" y2="${b.y+b.h/2}" stroke="#d47968" stroke-width="28" opacity=".8"/>`;}).join('');
+  const strokes=paths.map(path=>{const points=(path.points||[]).slice(0,350).map(point=>`${Number(point.x)||0},${Number(point.y)||0}`).join(' ');return points?`<polyline points="${points}" fill="none" stroke="${safeBoardColor(path.color)}" stroke-width="${Math.max(18,Math.min(72,(Number(path.width)||3)*8))}" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>`:'';}).join('');
+  const blocks=cards.map(card=>{const left=Math.max(0,Math.min(98.5,(Number(card.x)||0)/60)),top=Math.max(0,Math.min(98,(Number(card.y)||0)/40)),width=Math.max(2,Math.min(12,(Number(card.w)||260)/60)),height=Math.max(3,Math.min(18,(Number(card.h)||180)/40));return `<span class="board-preview-card" title="${esc(card.title||'Cartão')}" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%;width:${width.toFixed(2)}%;height:${height.toFixed(2)}%;background:${safeBoardColor(card.color)}"></span>`;}).join('');
+  const hasContent=cards.length||paths.length||links.length;
+  return `<div class="board-preview" role="img" aria-label="Prévia do quadro de planejamento">${hasContent?`<svg viewBox="0 0 6000 4000" aria-hidden="true">${lines}${strokes}</svg>${blocks}`:`<span class="board-preview-empty">Quadro vazio</span>`}</div>`;
+}
+
+function safeBoardColor(value) { return /^#[0-9a-f]{6}$/i.test(String(value||''))?value:'#39343b'; }
 
 function openModal(title,intro,formContent,submitLabel='Salvar') {
   modalBody.innerHTML=`<h2 id="modal-title" class="modal-title">${title}</h2><p class="modal-intro">${intro}</p><form id="entity-form">${formContent}<div class="form-actions"><button class="button" type="button" data-action="close-modal">Cancelar</button><button class="button button-primary" type="submit">${submitLabel}</button></div></form>`;
@@ -98,8 +188,9 @@ function characterForm(ch={},preselected='') {
   const data=getState(); const attrs=ch.attributes||{}; const selectedCampaigns=ch.campaignIds|| (preselected?[preselected]:[]);
   const campaigns=`<fieldset class="field full" style="border:1px solid #363c3d;padding:12px"><legend>Campanhas associadas</legend><div class="chip-list">${data.campaigns.length?data.campaigns.map(c=>`<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" name="campaignIds" value="${esc(c.id)}" ${selectedCampaigns.includes(c.id)?'checked':''}>${esc(c.name)}</label>`).join(''):'<small>Crie uma campanha para associar esta ficha.</small>'}</div></fieldset>`;
   const attr=`<fieldset class="field full" style="border:1px solid #363c3d;padding:12px"><legend>Atributos · anotação manual</legend><div class="rule-fields">${['Agilidade','Força','Intelecto','Presença','Vigor'].map((name,i)=>`<div class="field"><label for="attr-${i}">${name}</label><input id="attr-${i}" name="attr_${i}" value="${esc(attrs[name]||'')}" inputmode="numeric" aria-label="${name}, valor manual"></div>`).join('')}</div></fieldset>`;
-  openModal(ch.id?'Editar ficha':'Nova ficha','Campos e valores são anotados manualmente; não há cálculos automáticos de regras.',`<input type="hidden" name="id" value="${esc(ch.id||'')}"><div class="form-grid">${valueField('name','Nome do personagem *',ch.name||'','text','required maxlength="100"')}${valueField('playerNote','Anotação de jogador (opcional)',ch.playerNote||'')}${valueField('origin','Origem',ch.origin||'')}${valueField('className','Classe',ch.className||'')}${valueField('path','Trilha',ch.path||'')}${valueField('nex','NEX / nível',ch.nex||'')}${valueField('rank','Patente',ch.rank||'')}${valueField('pv','PV',ch.pv||'','text')}${valueField('pe','PE',ch.pe||'','text')}${valueField('san','SAN',ch.san||'','text')}${valueField('defense','Defesa',ch.defense||'','text')}${attr}${textareaField('skills','Perícias',''+(ch.skills||''),'Anote valores ou treinamento conforme a versão usada pela mesa.')}${textareaField('abilities','Habilidades e poderes',ch.abilities||'')}${textareaField('inventory','Inventário e equipamentos',ch.inventory||'')}${textareaField('progress','Progressão / outros campos',ch.progress||'')}${textareaField('notes','Notas',ch.notes||'')}${campaigns}</div>`);
+  openModal(ch.id?'Editar ficha':'Nova ficha','Campos e valores são anotados manualmente; não há cálculos automáticos de regras.',`<input type="hidden" name="id" value="${esc(ch.id||'')}"><div class="form-grid">${valueField('name','Nome do personagem *',ch.name||'','text','required maxlength="100"')}${valueField('playerName','Jogador(a)',ch.playerName||'')}${valueField('portrait','Imagem do personagem/jogador (URL, opcional)',ch.portrait||'','url','placeholder="https://…"')}${valueField('playerNote','Anotação de jogador (opcional)',ch.playerNote||'')}${valueField('origin','Origem',ch.origin||'')}${valueField('className','Classe',ch.className||'')}${valueField('path','Trilha',ch.path||'')}${valueField('nex','NEX / nível',ch.nex||'')}${valueField('rank','Patente',ch.rank||'')}${valueField('pv','PV',ch.pv||'','text')}${valueField('pe','PE',ch.pe||'','text')}${valueField('san','SAN',ch.san||'','text')}${valueField('defense','Defesa',ch.defense||'','text')}${attr}${textareaField('skills','Perícias',''+(ch.skills||''),'Anote valores ou treinamento conforme a versão usada pela mesa.')}${textareaField('abilities','Habilidades e poderes',ch.abilities||'')}${textareaField('inventory','Inventário e equipamentos',ch.inventory||'')}${textareaField('progress','Progressão / outros campos',ch.progress||'')}${textareaField('notes','Notas',ch.notes||'')}${campaigns}</div>`);
 }
+
 function sessionForm(s={},preselected='') { const data=getState(); if(!data.campaigns.length){toast('Crie uma campanha antes de registrar uma sessão.','warning');return;} openModal(s.id?'Editar sessão':'Nova sessão','O quadro de planejamento não é duplicado por sessão.',`<input type="hidden" name="id" value="${esc(s.id||'')}"><div class="form-grid"><div class="field"><label for="f-campaignId">Campanha *</label><select id="f-campaignId" name="campaignId" required>${data.campaigns.map(c=>`<option value="${esc(c.id)}" ${(s.campaignId||preselected)===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>${valueField('title','Título *',s.title||'','text','required maxlength="140"')}${valueField('date','Data e horário (opcionais)',s.date||'','datetime-local')}${textareaField('description','Descrição',s.description||'')}<div class="field"><label for="f-status">Estado</label><select id="f-status" name="status">${['Planejada','Realizada','Cancelada'].map(v=>`<option ${(s.status||'Planejada')===v?'selected':''}>${v}</option>`).join('')}</select></div>${textareaField('notes','Anotações',s.notes||'')}</div>`); }
 
 function handleCreate(type,campaignId='') { createMenu.hidden=true; createToggle.setAttribute('aria-expanded','false'); if(type==='campaign') campaignForm(); else if(type==='character') characterForm({},campaignId); else if(type==='session') sessionForm({},campaignId); else if(type==='board') { const data=getState(); if(!data.campaigns.length){toast('Crie uma campanha antes de abrir um quadro.','warning');return;} location.hash=data.campaigns.length===1?`#/planejamento/${encodeURIComponent(data.campaigns[0].id)}`:'#/planejamento'; } }
@@ -109,6 +200,7 @@ document.addEventListener('click',event=>{
   if(event.target.closest('#create-toggle')){createMenu.hidden=!createMenu.hidden;createToggle.setAttribute('aria-expanded',String(!createMenu.hidden));return;}
   if(!event.target.closest('.create-wrap')){createMenu.hidden=true;createToggle.setAttribute('aria-expanded','false');}
   const button=event.target.closest('[data-action]'); if(!button)return;
+  if(createMenu.contains(button)){createMenu.hidden=true;createToggle.setAttribute('aria-expanded','false');}
   const action=button.dataset.action, data=getState(), id=button.dataset.id;
   if(action==='close-modal'){modal.close();return;}
   if(action==='edit-campaign'){const c=data.campaigns.find(x=>x.id===id);if(c)campaignForm(c);return;}
@@ -130,8 +222,8 @@ document.addEventListener('submit',event=>{
     const name=String(fd.get('name')||'').trim();const cover=String(fd.get('cover')||'').trim();if(cover&&!validImageUrl(cover)){toast('A capa deve usar uma URL HTTP ou HTTPS válida.','error');return;}
     ok=commit(d=>{const record={id:id||uid(),name,description:String(fd.get('description')||'').trim(),cover,createdAt:d.campaigns.find(x=>x.id===id)?.createdAt||now,updatedAt:now};const index=d.campaigns.findIndex(x=>x.id===id);if(index>=0)d.campaigns[index]=record;else{d.campaigns.push(record);d.boards[record.id]={campaignId:record.id,cards:[],paths:[],links:[],updatedAt:now};}});success=id?'Campanha atualizada.':'Campanha criada. O quadro está vazio.';
   } else if(form.querySelector('[name="attr_0"]')) {
-    const old=getState().characters.find(x=>x.id===id);const attributes={};['Agilidade','Força','Intelecto','Presença','Vigor'].forEach((name,i)=>attributes[name]=String(fd.get(`attr_${i}`)||'').trim());const campaignIds=fd.getAll('campaignIds').map(String);
-    const record={id:id||uid(),name:String(fd.get('name')||'').trim(),playerNote:String(fd.get('playerNote')||'').trim(),origin:String(fd.get('origin')||'').trim(),className:String(fd.get('className')||'').trim(),path:String(fd.get('path')||'').trim(),nex:String(fd.get('nex')||'').trim(),rank:String(fd.get('rank')||'').trim(),pv:String(fd.get('pv')||'').trim(),pe:String(fd.get('pe')||'').trim(),san:String(fd.get('san')||'').trim(),defense:String(fd.get('defense')||'').trim(),attributes,skills:String(fd.get('skills')||'').trim(),abilities:String(fd.get('abilities')||'').trim(),inventory:String(fd.get('inventory')||'').trim(),progress:String(fd.get('progress')||'').trim(),notes:String(fd.get('notes')||'').trim(),campaignIds,createdAt:old?.createdAt||now,updatedAt:now};
+    const old=getState().characters.find(x=>x.id===id);const portrait=String(fd.get('portrait')||'').trim();if(portrait&&!validImageUrl(portrait)){toast('A imagem deve usar uma URL HTTP ou HTTPS válida.','error');return;}const attributes={};['Agilidade','Força','Intelecto','Presença','Vigor'].forEach((name,i)=>attributes[name]=String(fd.get(`attr_${i}`)||'').trim());const campaignIds=fd.getAll('campaignIds').map(String);
+    const record={id:id||uid(),name:String(fd.get('name')||'').trim(),playerNote:String(fd.get('playerNote')||'').trim(),playerName:String(fd.get('playerName')||'').trim(),portrait,origin:String(fd.get('origin')||'').trim(),className:String(fd.get('className')||'').trim(),path:String(fd.get('path')||'').trim(),nex:String(fd.get('nex')||'').trim(),rank:String(fd.get('rank')||'').trim(),pv:String(fd.get('pv')||'').trim(),pe:String(fd.get('pe')||'').trim(),san:String(fd.get('san')||'').trim(),defense:String(fd.get('defense')||'').trim(),attributes,skills:String(fd.get('skills')||'').trim(),abilities:String(fd.get('abilities')||'').trim(),inventory:String(fd.get('inventory')||'').trim(),progress:String(fd.get('progress')||'').trim(),notes:String(fd.get('notes')||'').trim(),campaignIds,createdAt:old?.createdAt||now,updatedAt:now};
     ok=commit(d=>{const index=d.characters.findIndex(x=>x.id===id);if(index>=0)d.characters[index]=record;else d.characters.push(record);});success=id?'Ficha atualizada.':'Ficha criada.';
   } else if(form.querySelector('[name="campaignId"]')) {
     const old=getState().sessions.find(x=>x.id===id);const record={id:id||uid(),campaignId:String(fd.get('campaignId')),title:String(fd.get('title')||'').trim(),date:String(fd.get('date')||''),description:String(fd.get('description')||'').trim(),status:String(fd.get('status')||'Planejada'),notes:String(fd.get('notes')||'').trim(),createdAt:old?.createdAt||now,updatedAt:now};
@@ -148,7 +240,7 @@ document.addEventListener('change',event=>{
 });
 
 function downloadArchive(){const blob=new Blob([exportArchive()],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`pela-realidade-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);toast('Arquivo JSON exportado para este dispositivo.');}
-function safeImage(url){try{const u=new URL(url,location.href);return ['http:','https:'].includes(u.protocol)?esc(u.href):'';}catch{return '';}}
+function safeImage(url){if(!String(url??'').trim())return '';try{const u=new URL(url,location.href);return ['http:','https:'].includes(u.protocol)?esc(u.href):'';}catch{return '';}}
 function validImageUrl(url){try{return ['http:','https:'].includes(new URL(url).protocol);}catch{return false;}}
 function byUpdated(a,b){return (b.updatedAt||b.createdAt||'').localeCompare(a.updatedAt||a.createdAt||'');}
 function byDate(a,b){return (a.date||'9999').localeCompare(b.date||'9999');}

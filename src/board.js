@@ -8,7 +8,7 @@ export function mountBoard(root, campaignId, toast, { getState, commit, uid }) {
   let camera = { x: 0, y: 0, zoom: 1 }, tool = 'pan', selected = null, selectedLink = null;
   let drawing = null, linkFrom = null, drag = null, saveTimer = null, savePending = false, disposed = false;
   root.innerHTML = `<section class="board-page">
-    <header class="board-header"><div class="board-heading"><div class="eyebrow">PLANEJAMENTO / QUADRO GERAL</div><h1>${esc(campaign.name)}</h1></div>
+    <header class="board-header"><div class="board-heading"><h1>${esc(campaign.name)}</h1></div>
       <div class="board-toolbar" role="toolbar" aria-label="Ferramentas do quadro">
         <button class="tool-button active" data-tool="pan" type="button">Mão / mover</button><button class="tool-button" data-tool="draw" type="button">Desenhar</button><button class="tool-button" data-tool="connect" type="button">Conectar</button><button class="tool-button" data-action="add-card" type="button">＋ Cartão</button>
         <button class="tool-button" data-action="edit-link" type="button" disabled>Editar ligação</button><button class="tool-button" data-action="delete-link" type="button" disabled>Remover ligação</button><button class="tool-button" data-action="clear-drawings" type="button">Apagar traços</button>
@@ -17,7 +17,7 @@ export function mountBoard(root, campaignId, toast, { getState, commit, uid }) {
     </header>
     <div class="board-viewport" id="board-viewport" aria-label="Quadro de planejamento. Arraste para navegar; use os controles de zoom.">
       <div class="board-stage" id="board-stage"><svg class="board-svg" id="board-svg" viewBox="0 0 6000 4000" aria-label="Desenhos e conexões"></svg><div id="board-cards"></div></div>
-      ${board.cards.length || board.paths.length || board.links.length ? '' : '<div class="board-empty-hint"><span class="eyebrow">QUADRO EM BRANCO</span><strong>Comece pelo que precisa organizar.</strong><span>Adicione um cartão, desenhe uma ligação ou navegue pelo espaço.</span></div>'}
+      ${board.cards.length || board.paths.length || board.links.length ? '' : '<div class="board-empty-hint"><strong>Comece pelo que precisa organizar.</strong><span>Adicione um cartão, desenhe uma ligação ou navegue pelo espaço.</span></div>'}
       <div class="board-tip"><kbd>Arraste</kbd> fundo: navegar · <kbd>Scroll</kbd>: zoom · clique em dois cartões com Conectar</div>
     </div>
   </section>`;

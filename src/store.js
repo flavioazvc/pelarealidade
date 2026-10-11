@@ -19,6 +19,7 @@ function normalize(value) {
   const campaignIds = new Set(campaigns.map(row => row.id));
   const characters = array(value.characters).filter(row => row && typeof row === 'object').map(row => ({
     id: text(row.id || uid(), 128), name: text(row.name, 100), playerNote: text(row.playerNote, 300),
+    playerName: text(row.playerName, 120), portrait: text(row.portrait, 2000),
     origin: text(row.origin, 200), className: text(row.className, 200), path: text(row.path, 200),
     nex: text(row.nex, 60), rank: text(row.rank, 100), pv: text(row.pv, 60), pe: text(row.pe, 60),
     san: text(row.san, 60), defense: text(row.defense, 60),

@@ -28,3 +28,10 @@ O projeto não usa framework ou compilação. Os caminhos de recursos são relat
 ## Atmosfera visual
 
 O fundo usa uma única superfície Canvas 2D fixa que cobre o viewport inteiro, com neblina procedural em camadas de cores frias e quentes e relâmpagos ramificados e intermitentes. Duas paletas atmosféricas são sorteadas no carregamento completo. A resolução interna é limitada a aproximadamente 700 mil pixels e a renderização a 18 quadros por segundo; a animação pausa quando a aba fica oculta. Não há `blur` animado, imagens de fundo, fontes ou bibliotecas externas. A preferência `prefers-reduced-motion` mantém um quadro estático sem relâmpagos ou animação contínua.
+
+
+## Apresentação dos registros
+
+A página inicial prioriza a saudação, os totais e a lista de alterações recentes; o espaço “Logins e senhas” é apenas um marcador em manutenção, sem coleta de credenciais. As listas de campanhas e personagens usam cartões responsivos, com três colunas em telas largas. Capas e retratos são URLs HTTP(S) opcionais; sem imagem, a interface exibe um placeholder e as iniciais. Nome do jogador e anotação do jogador são campos separados para preservar notas preexistentes.
+
+Na campanha, cada ficha vinculada resume NEX, PV, PE, SAN, Defesa e os cinco atributos registrados manualmente, com link para a ficha completa. A tela de planejamento monta uma miniatura SVG a partir de uma amostra limitada de cartões, ligações e traços do quadro persistido, sem salvar imagem derivada. Exportação e importação JSON continuam disponíveis no menu global.
