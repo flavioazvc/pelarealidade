@@ -1,9 +1,9 @@
 const ATTRIBUTES = [
-  { name: 'Agilidade', short: 'AGI', x: 55.3, y: 17.0 },
-  { name: 'Força', short: 'FOR', x: 26.2, y: 38.5 },
-  { name: 'Intelecto', short: 'INT', x: 84.3, y: 38.5 },
-  { name: 'Presença', short: 'PRE', x: 35.1, y: 74.5 },
-  { name: 'Vigor', short: 'VIG', x: 76.0, y: 74.1 },
+  { name: 'Agilidade', short: 'AGI', x: 55.0, y: 17.4 },
+  { name: 'Força', short: 'FOR', x: 26.5, y: 38.2 },
+  { name: 'Intelecto', short: 'INT', x: 84.7, y: 38.0 },
+  { name: 'Presença', short: 'PRE', x: 37.7, y: 74.1 },
+  { name: 'Vigor', short: 'VIG', x: 71.6, y: 73.7 },
 ];
 
 const TABS = [
@@ -73,7 +73,7 @@ export function getCharacterResourceFormValues(character, key) {
 function attributeMap(character) {
   const values = character.attributes || {};
   return `<section class="sheet-attributes" aria-labelledby="sheet-attributes-title">
-    <div class="sheet-section-heading"><span class="sheet-kicker">CAPACIDADES</span><h2 id="sheet-attributes-title">Atributos</h2></div>
+    <div class="sheet-section-heading"><h2 id="sheet-attributes-title">Atributos</h2></div>
     <div class="attribute-art" role="group" aria-label="Atributos do personagem">
       <img class="attribute-reference-art" src="./assets/attributes-reference.png" alt="" aria-hidden="true">
       ${ATTRIBUTES.map(attribute => {
@@ -96,9 +96,10 @@ function resourceBar(character, key, label, abbreviation, tone) {
     ? esc(resource.raw || 'A definir')
     : `${current} <span aria-hidden="true">/</span> ${max || '—'}`;
   const disabled = !resource.configured;
+  const isDegrading = resource.configured && percent < 50;
   const title = `${label} (${abbreviation})`;
 
-  return `<article class="sheet-resource resource-${tone}" aria-label="${title}">
+  return `<article class="sheet-resource resource-${tone}${isDegrading ? ' is-degrading' : ''}" aria-label="${title}">
     <div class="sheet-resource-heading"><span>${label}</span><small>${abbreviation}</small></div>
     <div class="sheet-resource-bar" style="--resource-progress:${percent}%" role="group" aria-label="${title}: ${resource.current ?? 'não definido'} de ${max || 'sem limite'}">
       <span class="sheet-resource-fill" aria-hidden="true"></span>
