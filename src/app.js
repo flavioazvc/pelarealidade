@@ -1,6 +1,6 @@
 import { loadState, getState, getStorageError, commit, uid, subscribe, importArchive, exportArchive } from './store.js?v=4';
 import { mountBoard } from './board.js?v=2';
-import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues } from './character-sheet.js?v=1';
+import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues } from './character-sheet.js?v=3';
 
 import { getSupabaseClient, checkSupabaseConnection } from './supabase.js?v=1';
 
@@ -265,13 +265,6 @@ document.addEventListener('submit',event=>{
 
 document.addEventListener('change',event=>{
   const target=event.target;
-  if(target.matches('[data-resource-range]')){
-    const id=target.dataset.id;const key=target.dataset.resource;const value=Number(target.value);const character=getState().characters.find(item=>item.id===id);const resource=character&&getCharacterResource(character,key);
-    if(!character||!['pv','san','pe'].includes(key)||!resource?.configured||!Number.isFinite(value))return;
-    const next=Math.max(0,Math.min(resource.max,Math.round(value)));
-    const ok=commit(d=>{const current=d.characters.find(item=>item.id===id);if(current){current[key]=String(next);current[`${key}Max`]=String(resource.max);current.updatedAt=new Date().toISOString();}});
-    if(ok)render();else toast('Não foi possível salvar os pontos.','error');
-  }
   if(target.matches('[data-session-status]')){const id=target.dataset.sessionStatus;const ok=commit(d=>{const s=d.sessions.find(x=>x.id===id);if(s){s.status=target.value;s.updatedAt=new Date().toISOString();}});if(ok){toast('Estado da sessão atualizado.');render();}else toast('Falha ao salvar o estado da sessão.','error');}
   if(target.id==='archive-file'&&target.files?.[0]){const file=target.files[0];if(!confirm('Importar este arquivo substituirá todos os registros locais atuais. Exporte uma cópia antes de continuar. Prosseguir?')){target.value='';return;}file.text().then(text=>{if(importArchive(text)){toast('Arquivo importado.');render();}else toast('Não foi possível confirmar a gravação do arquivo.','error');}).catch(error=>toast(`Falha ao importar o arquivo: ${error.message}`,'error')).finally(()=>target.value='');}
 });

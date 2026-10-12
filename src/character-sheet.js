@@ -1,9 +1,9 @@
 const ATTRIBUTES = [
-  { name: 'Agilidade', short: 'AGI', place: 'attribute-agility' },
-  { name: 'Força', short: 'FOR', place: 'attribute-strength' },
-  { name: 'Vigor', short: 'VIG', place: 'attribute-vigor' },
-  { name: 'Presença', short: 'PRE', place: 'attribute-presence' },
-  { name: 'Intelecto', short: 'INT', place: 'attribute-intellect' },
+  { name: 'Agilidade', short: 'AGI', x: 55.3, y: 17.0 },
+  { name: 'Força', short: 'FOR', x: 26.2, y: 38.5 },
+  { name: 'Intelecto', short: 'INT', x: 84.3, y: 38.5 },
+  { name: 'Presença', short: 'PRE', x: 35.1, y: 74.5 },
+  { name: 'Vigor', short: 'VIG', x: 76.0, y: 74.1 },
 ];
 
 const TABS = [
@@ -74,64 +74,42 @@ function attributeMap(character) {
   const values = character.attributes || {};
   return `<section class="sheet-attributes" aria-labelledby="sheet-attributes-title">
     <div class="sheet-section-heading"><span class="sheet-kicker">CAPACIDADES</span><h2 id="sheet-attributes-title">Atributos</h2></div>
-    <div class="attribute-map" role="list" aria-label="Atributos do personagem">
-      <div class="attribute-map-frame" aria-hidden="true"></div>
-      <div class="attribute-map-center" aria-hidden="true"><span>PR</span></div>
-      ${ATTRIBUTES.map(attribute => `<div class="attribute-node ${attribute.place}" role="listitem" aria-label="${attribute.name}: ${esc(values[attribute.name] || 'não definido')}">
-        <span class="attribute-short">${attribute.short}</span>
-        <strong>${esc(values[attribute.name] || '—')}</strong>
-        <small>${attribute.name}</small>
-      </div>`).join('')}
+    <div class="attribute-art" role="group" aria-label="Atributos do personagem">
+      <img class="attribute-reference-art" src="./assets/attributes-reference.png" alt="" aria-hidden="true">
+      ${ATTRIBUTES.map(attribute => {
+        const value = values[attribute.name] || '—';
+        return `<span class="attribute-value-overlay" style="--attribute-x:${attribute.x}%;--attribute-y:${attribute.y}%" aria-hidden="true">${esc(value)}</span>`;
+      }).join('')}
     </div>
-    <p class="sheet-hint">Valores registrados manualmente pela mesa.</p>
+    <ul class="sheet-attributes-accessible" aria-label="Valores dos atributos">
+      ${ATTRIBUTES.map(attribute => `<li>${attribute.name}: ${esc(values[attribute.name] || 'não definido')}</li>`).join('')}
+    </ul>
   </section>`;
 }
 
-function resourceBar(character, key, label, tone) {
+function resourceBar(character, key, label, abbreviation, tone) {
   const resource = getCharacterResource(character, key);
   const current = resource.current ?? 0;
   const max = resource.max ?? 0;
   const percent = resource.configured ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
   const valueText = resource.current === null
-    ? (resource.raw || 'A definir')
+    ? esc(resource.raw || 'A definir')
     : `${current} <span aria-hidden="true">/</span> ${max || '—'}`;
   const disabled = !resource.configured;
-  const setupHint = disabled
-    ? (resource.raw ? 'Edite com valores numéricos para ativar a barra.' : 'Defina valor atual e limite em “Editar ficha”.')
-    : `${Math.round(percent)}% do limite`;
+  const title = `${label} (${abbreviation})`;
 
-  return `<article class="sheet-resource resource-${tone}">
-    <div class="sheet-resource-heading"><span>${label}</span><strong>${valueText}</strong></div>
-    <input class="sheet-resource-range" type="range" min="0" max="${max}" step="1" value="${current}"
-      style="--resource-progress:${percent}%" data-resource-range data-id="${esc(character.id)}" data-resource="${key}"
-      aria-label="${label}, ${current} de ${max || 'sem limite'}" aria-valuetext="${current} de ${max || 'sem limite'}" ${disabled ? 'disabled' : ''}>
-    <div class="sheet-resource-controls">
-      <button class="resource-step" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="-1" aria-label="Diminuir ${label}" ${disabled || current <= 0 ? 'disabled' : ''}>−</button>
-      <span class="sheet-resource-note">${setupHint}</span>
-      <button class="resource-step" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="1" aria-label="Aumentar ${label}" ${disabled || current >= max ? 'disabled' : ''}>+</button>
+  return `<article class="sheet-resource resource-${tone}" aria-label="${title}">
+    <div class="sheet-resource-heading"><span>${label}</span><small>${abbreviation}</small></div>
+    <div class="sheet-resource-bar" style="--resource-progress:${percent}%" role="group" aria-label="${title}: ${resource.current ?? 'não definido'} de ${max || 'sem limite'}">
+      <span class="sheet-resource-fill" aria-hidden="true"></span>
+      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="-5" aria-label="Reduzir ${label} em 5" ${disabled || current <= 0 ? 'disabled' : ''}>«</button>
+      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="-1" aria-label="Reduzir ${label} em 1" ${disabled || current <= 0 ? 'disabled' : ''}>‹</button>
+      <strong class="sheet-resource-value">${valueText}</strong>
+      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="1" aria-label="Aumentar ${label} em 1" ${disabled || current >= max ? 'disabled' : ''}>›</button>
+      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="5" aria-label="Aumentar ${label} em 5" ${disabled || current >= max ? 'disabled' : ''}>»</button>
     </div>
+    ${disabled ? '<small class="sheet-resource-note">Defina o valor atual e o limite em “Editar ficha”.</small>' : ''}
   </article>`;
-}
-
-function campaignsContent(linked) {
-  return linked.length
-    ? `<div class="sheet-campaign-links">${linked.map(campaign => `<a class="sheet-campaign-link" href="#/campanha/${encodeURIComponent(campaign.id)}">${esc(campaign.name)} <span aria-hidden="true">↗</span></a>`).join('')}</div>`
-    : '<p class="sheet-empty-copy">Esta ficha ainda não está associada a uma campanha.</p>';
-}
-
-function generalTab(character, linked) {
-  const facts = [
-    ['ORIGEM', character.origin || 'Não informada'],
-    ['DEFESA', character.defense || '—'],
-    ['PATENTE', character.rank || '—'],
-    ['PROGRESSÃO', character.progress || '—'],
-  ];
-  return `<div class="sheet-tab-grid">
-    <section class="sheet-content-card"><span class="sheet-kicker">REGISTRO</span><h2>Dados gerais</h2>
-      <div class="sheet-facts">${facts.map(([label, value]) => `<div class="sheet-fact"><span>${label}</span><strong>${esc(value)}</strong></div>`).join('')}</div>
-    </section>
-    <section class="sheet-content-card"><span class="sheet-kicker">VÍNCULOS</span><h2>Campanhas</h2>${campaignsContent(linked)}</section>
-  </div>`;
 }
 
 function textTab(title, kicker, value, emptyMessage, className = '') {
@@ -140,7 +118,8 @@ function textTab(title, kicker, value, emptyMessage, className = '') {
   </section>`;
 }
 
-function tabContent(character, linked, tab) {
+function tabContent(character, tab) {
+  if (tab === 'geral') return '';
   if (tab === 'pericias') return textTab('Perícias', 'TREINAMENTO', character.skills, 'Nenhuma perícia registrada.');
   if (tab === 'habilidades') return textTab('Habilidades', 'RECURSOS DO PERSONAGEM', character.abilities, 'Nenhuma habilidade registrada.');
   if (tab === 'inventario') return textTab('Inventário', 'EQUIPAMENTOS', character.inventory, 'O inventário está vazio.');
@@ -149,10 +128,10 @@ function tabContent(character, linked, tab) {
     ${textTab('Descrição do personagem', 'HISTÓRIA E APARÊNCIA', character.description, 'Nenhuma descrição registrada.')}
     ${textTab('Anotações da mesa', 'NOTAS', character.notes, 'Nenhuma anotação registrada.')}
   </div>`;
-  return generalTab(character, linked);
+  return '';
 }
 
-export function renderCharacterSheet(character, linkedCampaigns = [], activeTab = 'geral') {
+export function renderCharacterSheet(character, _linkedCampaigns = [], activeTab = 'geral') {
   const selectedTab = TABS.some(tab => tab.id === activeTab) ? activeTab : 'geral';
   const name = esc(character.name || 'Personagem sem nome');
   const image = safeImage(character.portrait);
@@ -180,15 +159,14 @@ export function renderCharacterSheet(character, linkedCampaigns = [], activeTab 
         <div class="sheet-identity">
           ${portrait}
           <div class="sheet-identity-copy">
-            <span class="sheet-kicker">ARQUIVO DE PERSONAGEM</span>
             <h1 class="sheet-character-name">${name}</h1>
             <div class="sheet-identity-meta">${metadata.map(([label, value]) => `<div><span>${label}</span><strong>${esc(value)}</strong></div>`).join('')}</div>
           </div>
         </div>
         <div class="sheet-resources" aria-label="Pontos atuais e limites">
-          ${resourceBar(character, 'pv', 'PV', 'life')}
-          ${resourceBar(character, 'san', 'SAN', 'sanity')}
-          ${resourceBar(character, 'pe', 'PE', 'energy')}
+          ${resourceBar(character, 'pv', 'VIDA', 'PV', 'life')}
+          ${resourceBar(character, 'san', 'SANIDADE', 'SAN', 'sanity')}
+          ${resourceBar(character, 'pe', 'ESFORÇO', 'PE', 'energy')}
         </div>
       </section>
     </div>
@@ -198,6 +176,6 @@ export function renderCharacterSheet(character, linkedCampaigns = [], activeTab 
         <span aria-hidden="true">${tab.icon}</span>${tab.label}
       </a>`).join('')}
     </nav>
-    <div class="character-sheet-tab-content" id="character-sheet-content">${tabContent(character, linkedCampaigns, selectedTab)}</div>
+    <div class="character-sheet-tab-content" id="character-sheet-content">${tabContent(character, selectedTab)}</div>
   </section>`;
 }
