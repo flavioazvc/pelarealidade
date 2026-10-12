@@ -2,6 +2,8 @@ const STORAGE_KEY = 'pela-realidade:arquivo:v1';
 const EMPTY = () => ({ version: 1, campaigns: [], characters: [], sessions: [], boards: {} });
 const ATTRIBUTES = ['Agilidade', 'Força', 'Intelecto', 'Presença', 'Vigor'];
 let state = EMPTY();
+let storageKey = STORAGE_KEY;
+let legacyState = EMPTY();
 let lastError = '';
 const listeners = new Set();
 
@@ -14,7 +16,8 @@ function normalize(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return EMPTY();
   const campaigns = array(value.campaigns).filter(row => row && typeof row === 'object').map(row => ({
     id: text(row.id || uid(), 128), name: text(row.name, 120), description: text(row.description),
-    cover: text(row.cover, 2000), createdAt: text(row.createdAt, 80), updatedAt: text(row.updatedAt, 80)
+    cover: text(row.cover, 2000), createdAt: text(row.createdAt, 80), updatedAt: text(row.updatedAt, 80),
+    createdBy: text(row.createdBy, 128), membershipRole: text(row.membershipRole, 16)
   }));
   const campaignIds = new Set(campaigns.map(row => row.id));
   const characters = array(value.characters).filter(row => row && typeof row === 'object').map(row => ({
@@ -28,13 +31,15 @@ function normalize(value) {
     skills: text(row.skills), abilities: text(row.abilities), inventory: text(row.inventory), rituals: text(row.rituals),
     description: text(row.description), progress: text(row.progress), notes: text(row.notes),
     campaignIds: array(row.campaignIds).map(id => text(id, 128)).filter(id => campaignIds.has(id)),
-    createdAt: text(row.createdAt, 80), updatedAt: text(row.updatedAt, 80)
+    createdAt: text(row.createdAt, 80), updatedAt: text(row.updatedAt, 80),
+    ownerId: text(row.ownerId, 128), createdBy: text(row.createdBy, 128)
   }));
   const sessions = array(value.sessions).filter(row => row && typeof row === 'object' && campaignIds.has(text(row.campaignId, 128))).map(row => ({
     id: text(row.id || uid(), 128), campaignId: text(row.campaignId, 128), title: text(row.title, 140),
     date: text(row.date, 40), description: text(row.description),
     status: ['Planejada', 'Realizada', 'Cancelada'].includes(row.status) ? row.status : 'Planejada',
-    notes: text(row.notes), createdAt: text(row.createdAt, 80), updatedAt: text(row.updatedAt, 80)
+    notes: text(row.notes), createdAt: text(row.createdAt, 80), updatedAt: text(row.updatedAt, 80),
+    createdBy: text(row.createdBy, 128)
   }));
   const boards = {};
   if (value.boards && typeof value.boards === 'object' && !Array.isArray(value.boards)) {
@@ -63,8 +68,9 @@ function normalize(value) {
 
 export function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     state = raw ? normalize(JSON.parse(raw)) : EMPTY();
+    if (storageKey === STORAGE_KEY) legacyState = structuredClone(state);
     lastError = '';
   } catch (error) {
     lastError = error?.message || 'Não foi possível ler o armazenamento local.';
@@ -78,14 +84,39 @@ export function getStorageError() { return lastError; }
 export function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
 export function uid() { return globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`; }
 
+export function getLegacyState() { return structuredClone(legacyState); }
+
+export function setStorageScope(userId) {
+  storageKey = userId ? `${STORAGE_KEY}:user:${String(userId)}` : STORAGE_KEY;
+}
+
+export function replaceState(value, { persist = true } = {}) {
+  const next = normalize(value);
+  if (persist) {
+    const serialized = JSON.stringify(next);
+    localStorage.setItem(storageKey, serialized);
+    if (localStorage.getItem(storageKey) !== serialized) throw new Error('A gravação local não pôde ser confirmada.');
+  }
+  state = next;
+  lastError = '';
+  for (const listener of listeners) listener(state);
+  return state;
+}
+
+export function clearMemory() {
+  state = EMPTY();
+  lastError = '';
+  for (const listener of listeners) listener(state);
+}
+
 export function commit(change) {
   const previous = state;
   try {
     const next = structuredClone(state);
     change(next);
     const serialized = JSON.stringify(next);
-    localStorage.setItem(STORAGE_KEY, serialized);
-    const verification = localStorage.getItem(STORAGE_KEY);
+    localStorage.setItem(storageKey, serialized);
+    const verification = localStorage.getItem(storageKey);
     if (verification !== serialized) throw new Error('A gravação não pôde ser confirmada.');
     state = next;
     lastError = '';
