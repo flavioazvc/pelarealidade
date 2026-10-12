@@ -40,8 +40,8 @@ export async function loadWorkspace(client, userId) {
   const characters = (characterResult.data || []).map(row => ({
     id: row.id, name: row.name, playerNote: row.player_note || '', playerName: row.player_name || '',
     portrait: row.portrait_url || '', origin: row.origin || '', className: row.class_name || '', path: row.path || '',
-    nex: row.nex || '', rank: row.rank || '', pv: row.pv || '', pe: row.pe || '', san: row.san || '', defense: row.defense || '',
-    attributes: row.attributes || {}, skills: row.skills || '', abilities: row.abilities || '', inventory: row.inventory || '',
+    nex: row.nex || '', rank: row.rank || '', pv: row.pv || '', pvMax: row.pv_max || '', pe: row.pe || '', peMax: row.pe_max || '', san: row.san || '', sanMax: row.san_max || '', defense: row.defense || '',
+    attributes: row.attributes || {}, skills: row.skills || '', abilities: row.abilities || '', inventory: row.inventory || '', rituals: row.rituals || '', description: row.description || '',
     progress: row.progress || '', notes: row.notes || '', campaignIds: associations.get(row.id) || [],
     createdAt: row.created_at, updatedAt: row.updated_at, ownerId: row.owner_id, createdBy: row.created_by
   }));
@@ -79,8 +79,8 @@ function characterRow(item, userId) {
     id: item.id, owner_id: item.ownerId || userId, created_by: item.createdBy || userId,
     name: item.name, player_note: item.playerNote || '', player_name: item.playerName || '',
     portrait_url: item.portrait || null, origin: item.origin || '', class_name: item.className || '', path: item.path || '',
-    nex: item.nex || '', rank: item.rank || '', pv: item.pv || '', pe: item.pe || '', san: item.san || '', defense: item.defense || '',
-    attributes: item.attributes || {}, skills: item.skills || '', abilities: item.abilities || '', inventory: item.inventory || '',
+    nex: item.nex || '', rank: item.rank || '', pv: item.pv || '', pv_max: item.pvMax || '', pe: item.pe || '', pe_max: item.peMax || '', san: item.san || '', san_max: item.sanMax || '', defense: item.defense || '',
+    attributes: item.attributes || {}, skills: item.skills || '', abilities: item.abilities || '', inventory: item.inventory || '', rituals: item.rituals || '', description: item.description || '',
     progress: item.progress || '', notes: item.notes || '',
     created_at: item.createdAt || new Date().toISOString(), updated_at: item.updatedAt || new Date().toISOString()
   };
