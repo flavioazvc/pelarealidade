@@ -14,15 +14,15 @@ Não quero apenas um protótipo visual. Os botões, formulários, operações de
 
 Siga rigorosamente estas determinações:
 
-1. Não implemente autenticação nesta versão.
-2. Não crie páginas, formulários ou telas de login, cadastro de usuários ou recuperação de senha.
-3. Não implemente contas de jogadores ou mestres neste momento.
+1. Desenvolva a integração com Supabase por etapas. Na etapa atual, apenas configure o cliente e valide a conectividade; não crie contas nem telas de login.
+2. Na etapa de contas, somente o Administrador Flávio poderá convidar mestres e jogadores; não permita auto cadastro público.
+3. As senhas de acesso serão gerenciadas pelo Supabase Auth. Não armazene senhas recuperáveis nas tabelas da aplicação.
 4. Desenvolva a aplicação com dados reais e persistentes, sem depender exclusivamente de dados temporários ou fictícios.
 5. Escolha a arquitetura e as tecnologias mais adequadas ao projeto, priorizando simplicidade, segurança, manutenção e expansão futura.
 6. Explique brevemente as principais escolhas técnicas e eventuais limitações da solução adotada.
 7. Não preencha automaticamente as campanhas, os personagens ou os quadros com histórias, pistas, missões ou outros conteúdos narrativos inventados.
 8. Não considere uma funcionalidade concluída apenas porque sua interface foi desenhada. Implemente e teste seu funcionamento real.
-9. Prepare a estrutura do projeto para que seja possível adicionar autenticação e permissões posteriormente, sem implementar esses recursos agora.
+9. Mantenha os dados atuais no armazenamento local até que o esquema remoto, as políticas RLS e a migração sejam implementados e verificados.
 10. Não substitua funcionalidades solicitadas por botões decorativos, dados simulados apresentados como reais ou operações que não salvam as alterações.
 
 ## 3. IDENTIDADE VISUAL
@@ -329,34 +329,22 @@ Priorize:
 
 Não adicione serviços pagos ou dependências externas desnecessárias sem explicar sua necessidade.
 
-## 11. AUSÊNCIA DE LOGIN E RESTRIÇÕES DE SEGURANÇA
+## 11. AUTENTICAÇÃO, CONTAS E SEGURANÇA
 
-Não implemente nenhuma funcionalidade de autenticação nesta versão.
+A integração será feita em etapas. A etapa atual configura o cliente Supabase e verifica a disponibilidade da API Auth; o auto cadastro público já foi desativado no projeto. Ainda não cria contas, convites, sessões de usuários ou telas de login, nem sincroniza registros do jogo.
 
-Isso inclui:
+Quando a etapa de contas começar:
 
-- Nenhuma tela de login.
-- Nenhuma tela de cadastro.
-- Nenhuma recuperação de senha.
-- Nenhum sistema de contas.
-- Nenhum gerenciamento de sessões autenticadas.
-- Nenhum cadastro de jogadores ou mestres.
+- A conta Administrador Flávio será a única autorizada a convidar/criar contas de mestres e jogadores.
+- Não permita auto cadastro público.
+- Convide cada pessoa pelo e-mail para que ela conclua a própria conta e defina sua senha. Administradores podem reenviar convite, redefinir acesso ou desativar uma conta, mas não consultar a senha.
+- Não armazene senhas em texto puro nem valores recuperáveis em tabelas da aplicação. Senhas de acesso pertencem ao Supabase Auth; credenciais de serviços externos não devem virar um cofre de senhas improvisado.
+- Mantenha papéis e permissões em dados protegidos e gerenciados pelo servidor; não use metadados que o próprio usuário pode editar para autorizar operações.
+- Aplique políticas RLS no banco e no Storage: jogadores veem suas fichas e campanhas em que são membros; mestres veem as campanhas que administram; Flávio pode ler todas as fichas e campanhas e administrar as contas.
+- A chave publishable pode ser usada no cliente; a chave Secret/service_role e senhas administrativas permanecem somente no servidor e nunca entram no GitHub ou no navegador.
+- Mantenha os registros atuais no `localStorage` até que o esquema, as políticas RLS, o backup e a migração sejam implementados e validados.
 
-O sistema deverá funcionar sem exigir uma conta para utilizar a aplicação no ambiente autorizado.
-
-Entretanto, não presuma que a ausência de login torna seguro publicar dados privados na internet.
-
-Como o projeto possui informações de campanhas e quadros que futuramente serão privados, siga estas regras:
-
-- Não publique uma aplicação desprotegida com dados privados acessíveis a qualquer pessoa.
-- Se não houver autenticação, utilize um ambiente local ou uma implantação controlada com proteção apropriada.
-- Não considere uma URL difícil de adivinhar como substituta de autenticação.
-- Não exponha credenciais, segredos de serviços ou chaves privadas no código do frontend.
-- Se utilizar um backend ou serviço externo, proteja os dados e as operações conforme as capacidades reais da arquitetura.
-- Explique claramente quais garantias de privacidade são possíveis na versão sem login.
-- Não simule permissões de usuários que ainda não existem.
-
-Prepare o código para que a autenticação possa ser adicionada posteriormente, mas não a implemente nem crie telas relacionadas a ela.
+Não considere dados privados protegidos apenas porque a interface esconde botões ou rotas. A autorização deve ser aplicada pelo backend e pelo banco; não publique registros remotos antes de validar essas regras.
 
 ## 12. ARQUITETURA PREPARADA PARA EXPANSÃO
 
@@ -489,8 +477,8 @@ Considere a primeira versão concluída somente quando os seguintes cenários fu
 10. Erros de persistência são comunicados corretamente.
 11. Exclusões são confirmadas e não apagam indevidamente dados independentes.
 12. A aplicação funciona em computadores e dispositivos móveis.
-13. Não existe nenhuma tela ou funcionalidade de login, cadastro ou autenticação.
-14. As limitações de segurança e as condições de acesso da versão sem autenticação estão documentadas.
+13. A etapa de conexão Supabase não cria telas de login ou contas; essas funções somente entram nas etapas posteriores de convites e interface.
+14. As limitações da conexão atual e as regras futuras de Auth, RLS e acesso por papel estão documentadas.
 15. As funcionalidades implementadas foram efetivamente testadas, e não apenas representadas visualmente.
 
 ## 18. ENTREGA FINAL
@@ -518,7 +506,7 @@ Priorize uma aplicação funcional, confiável e expansível, em vez de uma inte
 
 ## Implementação inicial — instruções e limites
 
-A aplicação estática fica em `index.html`, `styles.css` e `src/`. Não exige build, backend, conta ou chave de serviço. Para executar localmente, rode `python3 -m http.server 8000` na raiz do repositório e abra `http://localhost:8000`.
+A aplicação estática fica em `index.html`, `styles.css` e `src/`. Não exige build próprio. `src/supabase.js` configura o cliente do projeto Supabase com a URL e a chave publishable, e verifica a API Auth. Essa chave é pública por definição; nenhuma chave Secret ou senha administrativa deve ser adicionada ao repositório. Para executar localmente, rode `python3 -m http.server 8000` na raiz do repositório e abra `http://localhost:8000`.
 
 ### Funcionalidades desta versão
 
@@ -527,11 +515,11 @@ A aplicação estática fica em `index.html`, `styles.css` e `src/`. Não exige 
 - Sessões vinculadas à campanha, com título, data opcional, descrição, anotações e estados Planejada, Realizada e Cancelada.
 - Um quadro em branco por campanha, com navegação, zoom, cartões móveis/redimensionáveis/coloridos, desenho livre, setas com rótulo editável e salvamento automático local.
 - Exportação e importação de backup JSON. Excluir campanha remove sessões e quadro, mas preserva as fichas e remove apenas suas associações.
-- Layout adaptável a telas menores; nenhuma tela ou funcionalidade de login foi criada.
+- Layout adaptável a telas menores; o cliente Supabase e a verificação de conectividade Auth estão configurados, mas ainda não há tela de login nem contas da aplicação.
 
 ### Persistência e privacidade
 
-A gravação usa `localStorage` no navegador. Isso preserva os dados após recarga no mesmo navegador e origem, mas não sincroniza entre dispositivos. Não há servidor que receba registros, backup automático, criptografia, autenticação, permissões ou colaboração simultânea. Qualquer pessoa com acesso ao mesmo perfil de navegador/dispositivo pode ler ou apagar os dados. A interface e o código do site são públicos; os registros não são publicados pelo Pages porque permanecem no navegador. Exporte backups e não use dispositivos compartilhados para dados que precisem de sigilo. Veja `docs/DECISOES-TECNICAS.md` para as decisões e fontes consultadas.
+A gravação dos registros do jogo ainda usa `localStorage` no navegador. A conexão Supabase desta etapa consulta apenas as configurações públicas da API Auth para validar disponibilidade; não envia campanhas, fichas, sessões ou quadros. O auto cadastro está desativado no projeto, mas convites administrativos ainda não foram implementados. Assim, os dados ainda não sincronizam entre dispositivos nem recebem políticas de acesso remoto. Qualquer pessoa com acesso ao mesmo perfil de navegador/dispositivo pode ler ou apagar esses registros. Exporte backups e não use dispositivos compartilhados para dados que precisem de sigilo. Veja `docs/DECISOES-TECNICAS.md` para as decisões e fontes consultadas.
 
 ### Regras da ficha
 
@@ -547,4 +535,4 @@ Foram exercitados no navegador isolado: criar campanha e recarregá-la; criar fi
 
 ### Limitações conhecidas
 
-Não há sincronização remota, autenticação, controle de acesso, backup automático, cálculos oficiais da ficha, uploads de imagens (a capa é uma URL HTTP/HTTPS), colaboração em tempo real nem importação de fichas existentes. Se o navegador apagar os dados do site ou a cota local for excedida, use o backup JSON para restaurar; a aplicação não oferece recuperação remota.
+Ainda não há sincronização dos registros do jogo com o banco, contas de usuário, interface de login, políticas RLS, backup remoto, cálculos oficiais da ficha, upload de imagens (a capa é uma URL HTTP/HTTPS), colaboração em tempo real nem importação de fichas existentes. O cliente Supabase apenas valida a conectividade Auth. Se o navegador apagar os dados do site ou a cota local for excedida, use o backup JSON para restaurar; a aplicação ainda não oferece recuperação remota.

@@ -1,6 +1,8 @@
 import { loadState, getState, getStorageError, commit, uid, subscribe, importArchive, exportArchive } from './store.js?v=3';
 import { mountBoard } from './board.js?v=2';
 
+import { getSupabaseClient, checkSupabaseConnection } from './supabase.js?v=1';
+
 const main = document.querySelector('#main');
 const modal = document.querySelector('#modal');
 const modalBody = document.querySelector('#modal-body');
@@ -9,6 +11,15 @@ const createMenu = document.querySelector('#create-menu');
 let searchText = '';
 let activeBoardDispose = null;
 loadState();
+
+// A conexão é preparada nesta etapa; registros do jogo continuam no localStorage.
+// Uma falha remota não impede o uso da aplicação local.
+void Promise.all([getSupabaseClient(), checkSupabaseConnection()])
+  .then(() => { document.documentElement.dataset.supabaseConnection = 'connected'; })
+  .catch(error => {
+    document.documentElement.dataset.supabaseConnection = 'unavailable';
+    console.warn('Supabase indisponível; os registros continuam locais.', error?.message || error);
+  });
 
 function esc(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtDate(value, options={dateStyle:'medium'}) { if (!value) return 'Sem data'; const d = new Date(value); return Number.isNaN(+d) ? 'Sem data' : new Intl.DateTimeFormat('pt-BR', options).format(d); }

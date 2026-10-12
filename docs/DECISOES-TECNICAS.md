@@ -1,12 +1,22 @@
 # Decisões técnicas e limites desta versão
 
-## Implantação e privacidade
+## Implantação e persistência atual
 
-O site é uma aplicação estática hospedável no GitHub Pages: HTML, CSS e JavaScript no navegador, sem API, servidor de aplicação, analytics ou dependência paga. Campanhas, fichas, sessões e quadros são gravados no `localStorage` deste navegador e origem do site. O conteúdo não é enviado ao GitHub Pages nem sincronizado automaticamente entre navegadores ou dispositivos. Como não há autenticação, qualquer pessoa com acesso ao mesmo perfil de navegador/dispositivo pode consultar ou apagar esses registros; não use um equipamento compartilhado para informações que precisem de sigilo. A publicação torna o código e a interface acessíveis publicamente, mas não publica os registros que permanecem no armazenamento local.
+O site continua sendo uma aplicação estática publicada no GitHub Pages. Campanhas, fichas, sessões e quadros ainda são gravados no `localStorage` do navegador e não são enviados ao Supabase. Exportação JSON continua sendo o backup disponível; não há migração remota nem recuperação de dados entre dispositivos nesta etapa.
 
-A persistência depende das políticas e da capacidade do navegador. Limpar os dados do site, usar outro navegador/dispositivo ou exceder a cota pode tornar os registros inacessíveis. Use a exportação JSON periódica para cópia de segurança. Não há recuperação remota. A aplicação não oferece controle de acesso, criptografia de dados em repouso, backup automático, edição simultânea ou recuperação de conta.
+## Integração Supabase — etapa de conexão
 
-Não existe login, cadastro, perfil ou permissão simulada. O modelo separa campanha, personagem, sessão e quadro; a associação de personagens às campanhas é independente da ficha. Excluir uma campanha remove suas sessões e quadro, mas apenas desassocia — não apaga — as fichas originais.
+`src/supabase.js` guarda a URL pública do projeto e a chave `publishable`, inicializa de forma assíncrona o SDK `@supabase/supabase-js` em versão fixada e consulta `auth/v1/settings` para confirmar que a API Auth responde. Essa verificação não cria usuário, não abre sessão e não consulta nem grava dados do jogo. Se o SDK ou a API falhar, a aplicação local continua funcionando.
+
+A chave publishable foi projetada para uso no navegador e o repositório GitHub é público. Ela não é uma credencial administrativa. Nenhuma chave Secret/`service_role`, senha de banco ou token administrativo pode ser publicada no HTML, JavaScript ou GitHub. Operações administrativas futuras — convites, schema e migrações — precisam de execução confiável no servidor ou no painel Supabase.
+
+Na primeira verificação, o endpoint Auth respondeu com sucesso e indicou que o cadastro público estava habilitado. Após o login autorizado no painel, `Allow new users to sign up` foi desligado e a resposta pública de `auth/v1/settings` confirmou `disable_signup: true`. A confirmação de e-mail continua habilitada. Ainda não foram criadas tabelas, políticas RLS, buckets, Edge Functions, convites ou contas de jogadores/mestres; não trate a aplicação como sincronizada ou autenticada.
+
+## Arquitetura de contas e permissões aprovada
+
+A arquitetura futura usa Supabase Auth para credenciais de acesso. Os convites são iniciados pelo Administrador Flávio; cada convidado conclui a própria conta e define sua senha. A aplicação não guarda senha recuperável, e o administrador não consulta as senhas dos usuários.
+
+Papéis previstos: `admin` (Flávio), `master` e `player`. Flávio poderá ler todas as fichas e campanhas e administrar contas; um mestre verá as campanhas que administra; um jogador verá as próprias fichas e as campanhas das quais é membro. As autorizações deverão ser verificadas no servidor e aplicadas por RLS no Postgres e no Storage. Papéis não devem ser confiados a metadados editáveis pelo usuário.
 
 ## Ficha de personagem
 
@@ -21,17 +31,12 @@ Fontes consultadas:
 - [Anúncio da Jambô do Registro de Atualizações, versão 1.3 (31/01/2025)](https://x.com/jamboeditora/status/1885424944462340310)
 - [Conteúdo editorial de Ordem Paranormal RPG — blog da Jambô](https://blog.jamboeditora.com.br/tags/ordem-paranormal-rpg/)
 
-## Compatibilidade
+## Compatibilidade e experiência visual
 
 O projeto não usa framework ou compilação. Os caminhos de recursos são relativos para funcionar na URL de projeto do Pages (`/<repositório>/`). O roteamento usa fragmentos (`#/...`), evitando necessidade de fallback de servidor. Os navegadores precisam suportar módulos JavaScript, `localStorage`, `structuredClone` e a API `<dialog>`.
 
-## Atmosfera visual
+O fundo usa uma única superfície Canvas 2D fixa que cobre o viewport inteiro, com neblina procedural em camadas de cores frias e quentes e relâmpagos ramificados e intermitentes. Duas paletas atmosféricas são sorteadas no carregamento completo. A resolução interna é limitada a aproximadamente 700 mil pixels e a renderização a 18 quadros por segundo; a animação pausa quando a aba fica oculta. Não há `blur` animado, imagens de fundo ou fontes externas. A preferência `prefers-reduced-motion` mantém um quadro estático sem relâmpagos ou animação contínua.
 
-O fundo usa uma única superfície Canvas 2D fixa que cobre o viewport inteiro, com neblina procedural em camadas de cores frias e quentes e relâmpagos ramificados e intermitentes. Duas paletas atmosféricas são sorteadas no carregamento completo. A resolução interna é limitada a aproximadamente 700 mil pixels e a renderização a 18 quadros por segundo; a animação pausa quando a aba fica oculta. Não há `blur` animado, imagens de fundo, fontes ou bibliotecas externas. A preferência `prefers-reduced-motion` mantém um quadro estático sem relâmpagos ou animação contínua.
-
-
-## Apresentação dos registros
-
-A página inicial prioriza a saudação, os totais e a lista de alterações recentes; o espaço “Logins e senhas” é apenas um marcador em manutenção, sem coleta de credenciais. As listas de campanhas e personagens usam cartões responsivos, com três colunas em telas largas. Capas e retratos são URLs HTTP(S) opcionais; sem imagem, a interface exibe um placeholder e as iniciais. Nome do jogador e anotação do jogador são campos separados para preservar notas preexistentes.
+A página inicial prioriza a saudação, os totais e a lista de alterações recentes; o espaço “Logins e senhas” permanece um marcador em manutenção, sem coleta de credenciais. As listas de campanhas e personagens usam cartões responsivos, com três colunas em telas largas. Capas e retratos são URLs HTTP(S) opcionais; sem imagem, a interface exibe um placeholder e as iniciais. Nome do jogador e anotação do jogador são campos separados para preservar notas preexistentes.
 
 Na campanha, cada ficha vinculada resume NEX, PV, PE, SAN, Defesa e os cinco atributos registrados manualmente, com link para a ficha completa. A tela de planejamento monta uma miniatura SVG a partir de uma amostra limitada de cartões, ligações e traços do quadro persistido, sem salvar imagem derivada. Exportação e importação JSON continuam disponíveis no menu global.
