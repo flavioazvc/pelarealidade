@@ -4,46 +4,52 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b090d">
-  <meta name="description" content="Pela Realidade — central local para organizar campanhas de RPG investigativo.">
+  <meta name="description" content="Pela Realidade — acesso restrito para organizar campanhas de RPG investigativo.">
   <title>Pela Realidade — Acesso Restrito</title>
   <script>document.documentElement.dataset.atmosphere = Math.random() < .5 ? 'veil' : 'rift';</script>
-  <link rel="stylesheet" href="./styles.css?v=4">
+  <link rel="stylesheet" href="./styles.css?v=5">
 </head>
 <body>
   <div class="paranormal-atmosphere" aria-hidden="true">
     <canvas class="atmosphere-canvas" id="storm-canvas"></canvas>
   </div>
-  <a class="skip-link" href="#main">Pular para o conteúdo</a>
-  <header class="topbar">
-    <a class="brand" href="#/" aria-label="Pela Realidade, início">
-      <span class="brand-mark" aria-hidden="true">PR</span>
-      <span class="brand-copy"><strong>Pela Realidade</strong><small>ACESSO RESTRITO</small></span>
-    </a>
-    <nav class="main-nav" aria-label="Navegação principal">
-      <a href="#/" data-route="home">Início</a>
-      <a href="#/campanhas" data-route="campaigns">Campanhas</a>
-      <a href="#/personagens" data-route="characters">Personagens</a>
-      <a href="#/sessoes" data-route="sessions">Sessões</a>
-      <a href="#/planejamento" data-route="planning">Planejamento</a>
-    </nav>
-    <div class="top-actions">
-      <div class="create-wrap">
-        <button id="create-toggle" class="button button-primary" type="button" aria-expanded="false" aria-controls="create-menu">＋ Criar</button>
-        <div id="create-menu" class="create-menu" hidden>
-          <button type="button" data-create="campaign">Nova campanha</button>
-          <button type="button" data-create="character">Nova ficha</button>
-          <button type="button" data-create="session">Nova sessão</button>
-          <button type="button" data-create="board">Abrir quadro de campanha</button>
-          <hr class="create-divider">
-          <button type="button" data-action="export">Exportar arquivo</button>
-          <button type="button" data-action="import">Importar arquivo</button>
+  <div id="auth-shell" hidden></div>
+  <div id="app-shell" hidden>
+    <a class="skip-link" href="#main">Pular para o conteúdo</a>
+    <header class="topbar">
+      <a class="brand" href="#/" aria-label="Pela Realidade, início">
+        <span class="brand-mark" aria-hidden="true">PR</span>
+        <span class="brand-copy"><strong>Pela Realidade</strong><small>ACESSO RESTRITO</small></span>
+      </a>
+      <nav class="main-nav" aria-label="Navegação principal">
+        <a href="#/" data-route="home">Início</a>
+        <a href="#/campanhas" data-route="campaigns">Campanhas</a>
+        <a href="#/personagens" data-route="characters">Personagens</a>
+        <a href="#/sessoes" data-route="sessions">Sessões</a>
+        <a href="#/planejamento" data-route="planning">Planejamento</a>
+        <a href="#/acessos" data-route="accesses" id="admin-access-nav" hidden>Acessos</a>
+      </nav>
+      <div class="top-actions">
+        <div class="create-wrap">
+          <button id="create-toggle" class="button button-primary" type="button" aria-expanded="false" aria-controls="create-menu">＋ Criar</button>
+          <div id="create-menu" class="create-menu" hidden>
+            <button type="button" data-create="campaign">Nova campanha</button>
+            <button type="button" data-create="character">Nova ficha</button>
+            <button type="button" data-create="session">Nova sessão</button>
+            <button type="button" data-create="board">Abrir quadro de campanha</button>
+            <hr class="create-divider">
+            <button type="button" data-action="export">Exportar arquivo</button>
+            <button type="button" data-action="import">Importar arquivo</button>
+          </div>
         </div>
+        <span class="local-badge"><i aria-hidden="true"></i><span>SUPABASE</span></span>
+        <span class="user-badge" id="account-label"></span>
+        <button class="button button-sm signout-button" type="button" data-action="logout">Sair</button>
       </div>
-      <span class="local-badge"><i aria-hidden="true"></i> ARQUIVO LOCAL</span>
-    </div>
-  </header>
-  <main id="main" tabindex="-1"><div class="loading-state">Abrindo arquivo…</div></main>
-  <footer class="app-footer"><span>PELA REALIDADE <b>·</b> ARQUIVO DE OPERAÇÕES</span><span>Seus registros ficam neste navegador.</span></footer>
+    </header>
+    <main id="main" tabindex="-1"><div class="loading-state">Abrindo arquivo…</div></main>
+    <footer class="app-footer"><span>PELA REALIDADE <b>·</b> ARQUIVO DE OPERAÇÕES</span><span>Dados protegidos e sincronizados pelo Supabase.</span></footer>
+  </div>
   <dialog id="modal" class="modal" aria-labelledby="modal-title">
     <div class="modal-frame">
       <button class="modal-close" type="button" data-action="close-modal" aria-label="Fechar">×</button>
@@ -52,6 +58,6 @@
   </dialog>
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
   <script type="module" src="./src/atmosphere.js?v=3"></script>
-  <script type="module" src="./src/app.js?v=11"></script>
+  <script type="module" src="./src/app.js?v=12"></script>
 </body>
 </html>
