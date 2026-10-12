@@ -1,9 +1,9 @@
 const ATTRIBUTES = [
-  { name: 'Agilidade', short: 'AGI', x: 55.0, y: 17.4 },
-  { name: 'Força', short: 'FOR', x: 26.5, y: 38.2 },
-  { name: 'Intelecto', short: 'INT', x: 84.7, y: 38.0 },
-  { name: 'Presença', short: 'PRE', x: 37.7, y: 74.1 },
-  { name: 'Vigor', short: 'VIG', x: 71.6, y: 73.7 },
+  { name: 'Agilidade', short: 'AGI', x: 50, y: 18 },
+  { name: 'Força', short: 'FOR', x: 23, y: 42 },
+  { name: 'Intelecto', short: 'INT', x: 77, y: 42 },
+  { name: 'Presença', short: 'PRE', x: 35, y: 75 },
+  { name: 'Vigor', short: 'VIG', x: 65, y: 75 },
 ];
 
 const TABS = [
@@ -75,10 +75,10 @@ function attributeMap(character) {
   return `<section class="sheet-attributes" aria-labelledby="sheet-attributes-title">
     <div class="sheet-section-heading"><h2 id="sheet-attributes-title">Atributos</h2></div>
     <div class="attribute-art" role="group" aria-label="Atributos do personagem">
-      <img class="attribute-reference-art" src="./assets/attributes-reference.png" alt="" aria-hidden="true">
+      <img class="attribute-reference-art" src="./assets/atributos.png" alt="" aria-hidden="true">
       ${ATTRIBUTES.map(attribute => {
         const value = values[attribute.name] || '—';
-        return `<span class="attribute-value-overlay" style="--attribute-x:${attribute.x}%;--attribute-y:${attribute.y}%" aria-hidden="true">${esc(value)}</span>`;
+        return `<span class="attribute-value-overlay" style="--attribute-x:${attribute.x}%;--attribute-y:${attribute.y}%" aria-hidden="true"><span>${attribute.short}</span><strong>${esc(value)}</strong></span>`;
       }).join('')}
     </div>
     <ul class="sheet-attributes-accessible" aria-label="Valores dos atributos">
