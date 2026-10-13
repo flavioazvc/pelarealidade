@@ -1,10 +1,10 @@
 const ATTRIBUTES = [
-  // Coordenadas dos centros dos círculos na arte quadrada 720×720.
-  { name: 'Agilidade', x: 50, y: 21.37 },
-  { name: 'Força', x: 19.38, y: 43.49 },
-  { name: 'Intelecto', x: 81.52, y: 43.46 },
-  { name: 'Presença', x: 29.18, y: 80.38 },
-  { name: 'Vigor', x: 70.24, y: 80.36 },
+  // Posições percentuais especificadas para os números sobre a arte 720×720.
+  { name: 'Agilidade', x: 50.6, y: 17.37 },
+  { name: 'Força', x: 19.38, y: 39.49 },
+  { name: 'Intelecto', x: 81.9, y: 39.46 },
+  { name: 'Presença', x: 29.5, y: 76.38 },
+  { name: 'Vigor', x: 70.8, y: 76.36 },
 ];
 
 const TABS = [
