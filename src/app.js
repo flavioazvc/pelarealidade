@@ -1,6 +1,6 @@
 import { loadState, getState, getStorageError, commit as commitLocal, uid, subscribe, importArchive, exportArchive, getLegacyState, setStorageScope, replaceState, clearMemory } from './store.js?v=4';
 import { mountBoard } from './board.js?v=3';
-import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=11';
+import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=12';
 import { INVENTORY_CATEGORIES, readCharacterAbilities, serializeCharacterAbilities, readCharacterInventory, serializeCharacterInventory, readCharacterDescription, serializeCharacterDescription } from './character-data.js?v=1';
 import { getClient, readProfile, signInWithNickname, requestAdminOperation, listProfiles, signOut } from './auth.js?v=1';
 import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=1';
@@ -438,8 +438,9 @@ function characterForm(ch={},preselected='') {
 
 function abilityForm(character,item=null,itemId='') {
   const id=itemId||item?.id||'';
+  const deleteButton=id?`<div class="ability-form-delete-row"><button class="button button-sm button-danger" type="button" data-action="delete-ability" data-id="${esc(character.id)}" data-item="${esc(id)}">Excluir habilidade</button></div>`:'';
   openModal(id?'Editar habilidade':'Nova habilidade','Cadastre o nome e a descrição. Termos de regra e perícias recebem destaque automático na ficha.',
-    `<input type="hidden" name="characterId" value="${esc(character.id)}"><input type="hidden" name="itemId" value="${esc(id)}"><div class="form-grid">${valueField('name','Nome da habilidade',item?.name||'','text','required maxlength="120"')}${sheetTextareaField('description','Descrição',item?.description||'',id==='__legacy__'?20000:8000)}</div>`,
+    `<input type="hidden" name="characterId" value="${esc(character.id)}"><input type="hidden" name="itemId" value="${esc(id)}"><div class="form-grid">${valueField('name','Nome da habilidade',item?.name||'','text','required maxlength="120"')}${sheetTextareaField('description','Descrição',item?.description||'',id==='__legacy__'?20000:8000)}</div>${deleteButton}`,
     'Salvar habilidade','ability-form');
 }
 
@@ -542,7 +543,7 @@ document.addEventListener('click',event=>{
     const label=item?.name||(itemId==='__legacy__'?'o texto de habilidades anterior':'esta habilidade');
     if(!confirm(`Excluir “${label}”? Esta ação não pode ser desfeita.`))return;
     const next=itemId==='__legacy__'?{...stored,legacy:''}:{...stored,items:stored.items.filter(entry=>entry.id!==itemId)};
-    saveStructuredCharacterField(id,'abilities',serializeCharacterAbilities,next,'Habilidade excluída.');
+    saveStructuredCharacterField(id,'abilities',serializeCharacterAbilities,next,'Habilidade excluída.',true);
     return;
   }
   if(action==='add-inventory-item'){

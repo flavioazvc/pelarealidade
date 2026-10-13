@@ -801,3 +801,22 @@ main { min-height: calc(100vh - 76px); }
   .ability-card-summary, .inventory-item-summary { padding: 13px; }
   .ability-card-body, .inventory-item-body { padding: 0 13px 13px; }
 }
+
+
+/* Refinos da aba Habilidades: grade como Perícias e controles compactos */
+.ability-list { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+.ability-card-summary { gap: 8px; padding: 12px 14px; }
+.ability-card-summary::after { content: '↓'; margin-left: auto; color: #d58b80; font: 700 16px/1 var(--mono); }
+.ability-card[open] > .ability-card-summary::after { content: '↑'; }
+.ability-card-body { gap: 6px; padding: 0 14px 11px; }
+.ability-card-actions { display: flex; justify-content: flex-start; }
+.ability-card-actions .button { min-height: 27px; padding: 4px 9px; font-size: 10px; }
+.ability-form-delete-row { display: flex; justify-content: flex-start; margin-top: 12px; }
+@media (max-width: 760px) {
+  .ability-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .ability-list { grid-template-columns: 1fr; }
+  .ability-card-summary { padding: 12px 13px; }
+  .ability-card-body { padding: 0 13px 11px; }
+}
