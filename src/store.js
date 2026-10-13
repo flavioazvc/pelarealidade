@@ -28,8 +28,8 @@ function normalize(value) {
     pe: text(row.pe, 60), peMax: text(row.peMax, 60), san: text(row.san, 60), sanMax: text(row.sanMax, 60),
     defense: text(row.defense, 60),
     attributes: Object.fromEntries(ATTRIBUTES.map(name => [name, text(row.attributes?.[name], 20)])),
-    skills: text(row.skills), abilities: text(row.abilities), inventory: text(row.inventory), rituals: text(row.rituals),
-    description: text(row.description), progress: text(row.progress), notes: text(row.notes),
+    skills: text(row.skills), abilities: text(row.abilities, 2000000), inventory: text(row.inventory, 2000000), rituals: text(row.rituals),
+    description: text(row.description, 100000), progress: text(row.progress), notes: text(row.notes),
     campaignIds: array(row.campaignIds).map(id => text(id, 128)).filter(id => campaignIds.has(id)),
     createdAt: text(row.createdAt, 80), updatedAt: text(row.updatedAt, 80),
     ownerId: text(row.ownerId, 128), createdBy: text(row.createdBy, 128)

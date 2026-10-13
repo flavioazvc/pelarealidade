@@ -1,3 +1,5 @@
+import { INVENTORY_CATEGORIES, readCharacterAbilities, readCharacterInventory, readCharacterDescription } from './character-data.js?v=1';
+
 const ATTRIBUTES = [
   // Posições percentuais especificadas para os números sobre a arte 720×720.
   { name: 'Agilidade', x: 50.6, y: 17.37 },
@@ -147,9 +149,134 @@ function resourceBar(character, key, label, abbreviation, tone) {
   </article>`;
 }
 
-function textTab(title, kicker, value, emptyMessage, className = '') {
-  return `<section class="sheet-content-card sheet-text-card ${className}"><span class="sheet-kicker">${kicker}</span><h2>${title}</h2>
+function textTab(title, _kicker, value, emptyMessage, className = '') {
+  return `<section class="sheet-content-card sheet-text-card ${className}"><h2>${title}</h2>
     <div class="sheet-longtext">${value ? esc(value) : `<span class="sheet-empty-copy">${emptyMessage}</span>`}</div>
+  </section>`;
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function highlightRuleText(value, character) {
+  const source = String(value ?? '');
+  if (!source) return '';
+  const terms = [
+    'Sanidade(?:s)?', 'SAN', 'PV(?:s)?', 'PE(?:s)?',
+    ...SKILLS.map(skill => escapeRegex(skill.name)),
+  ].sort((left, right) => right.length - left.length);
+  const expression = new RegExp(`(^|[^\\p{L}\\p{N}_])(${terms.join('|')})(?=$|[^\\p{L}\\p{N}_])`, 'giu');
+  const training = parseSkillTraining(character?.skills);
+  let result = '';
+  let cursor = 0;
+  let match;
+  while ((match = expression.exec(source)) !== null) {
+    const separator = match[1] || '';
+    const term = match[2];
+    result += esc(source.slice(cursor, match.index)) + esc(separator);
+    const skill = SKILLS.find(item => item.name.toLocaleLowerCase('pt-BR') === term.toLocaleLowerCase('pt-BR'));
+    const modifier = skill
+      ? `skill-${skillTrainingValue(training, skill.name)}`
+      : /^pv/i.test(term) ? 'pv' : /^pe/i.test(term) ? 'pe' : 'san';
+    result += `<strong class="rule-text-highlight rule-text-highlight--${modifier}">${esc(term)}</strong>`;
+    cursor = match.index + match[0].length;
+  }
+  return result + esc(source.slice(cursor));
+}
+
+function abilityCard(character, item, canEdit, legacy = false) {
+  const itemId = legacy ? '__legacy__' : item.id;
+  const description = String(item.description ?? '');
+  const controls = canEdit ? `<div class="sheet-card-actions">
+      <button class="button button-sm" type="button" data-action="edit-ability" data-id="${esc(character.id)}" data-item="${esc(itemId)}">Editar</button>
+      <button class="button button-sm button-danger" type="button" data-action="delete-ability" data-id="${esc(character.id)}" data-item="${esc(itemId)}">Excluir</button>
+    </div>` : '';
+  return `<details class="ability-card">
+    <summary class="ability-card-summary"><span>${esc(item.name || 'Habilidade sem nome')}</span><span class="ability-expand-hint">Ver descrição</span></summary>
+    <div class="ability-card-body">${controls}<div class="rule-text">${description ? highlightRuleText(description, character) : '<span class="sheet-empty-copy">Sem descrição cadastrada.</span>'}</div></div>
+  </details>`;
+}
+
+function abilitiesTab(character, canEdit) {
+  const data = readCharacterAbilities(character);
+  const items = data.items.map(item => abilityCard(character, item, canEdit));
+  if (data.legacy.trim()) items.unshift(abilityCard(character, { id: '__legacy__', name: 'Habilidades anteriores', description: data.legacy }, canEdit, true));
+  return `<section class="sheet-content-card abilities-panel" aria-labelledby="sheet-abilities-title">
+    <div class="sheet-panel-heading"><h2 id="sheet-abilities-title">Habilidades</h2>${canEdit ? `<button class="button button-sm" type="button" data-action="add-ability" data-id="${esc(character.id)}">＋ Nova habilidade</button>` : ''}</div>
+    <div class="ability-list">${items.length ? items.join('') : '<p class="sheet-empty-copy">Nenhuma habilidade cadastrada.</p>'}</div>
+  </section>`;
+}
+
+function inventoryItemCard(character, item, canEdit, legacy = false) {
+  const itemId = legacy ? '__legacy__' : item.id;
+  const badges = legacy
+    ? '<span class="inventory-item-tag inventory-item-tag--legacy">Dados anteriores</span>'
+    : `<span class="inventory-item-tag">Categoria ${esc(item.category)}</span><span class="inventory-item-tag">${item.spaces} ${item.spaces === 1 ? 'espaço' : 'espaços'}</span>`;
+  const controls = canEdit ? `<div class="sheet-card-actions">
+      <button class="button button-sm" type="button" data-action="edit-inventory-item" data-id="${esc(character.id)}" data-item="${esc(itemId)}">Editar</button>
+      <button class="button button-sm button-danger" type="button" data-action="delete-inventory-item" data-id="${esc(character.id)}" data-item="${esc(itemId)}">Excluir</button>
+    </div>` : '';
+  const description = String(item.description ?? '');
+  return `<details class="inventory-item-card${legacy ? ' inventory-item-card--legacy' : ''}">
+    <summary class="inventory-item-summary"><span class="inventory-item-name">${esc(item.name || 'Item sem nome')}</span><span class="inventory-item-tags">${badges}</span><span class="ability-expand-hint">Detalhes</span></summary>
+    <div class="inventory-item-body">${controls}<div class="rule-text">${description ? highlightRuleText(description, character) : '<span class="sheet-empty-copy">Sem descrição cadastrada.</span>'}</div></div>
+  </details>`;
+}
+
+function categoryCounter(category, count, limit, canEdit) {
+  const over = limit !== null && count > limit;
+  const limitValue = limit === null ? '' : String(limit);
+  return `<label class="inventory-category-counter${over ? ' is-over-limit' : ''}">
+    <span class="inventory-category-label">Categoria ${esc(category)}</span>
+    <strong class="inventory-category-count">${count}</strong>
+    <span class="inventory-category-limit">itens · limite
+      <input type="number" name="limit_${esc(category)}" min="0" step="1" value="${esc(limitValue)}" placeholder="∞" aria-label="Limite de itens da categoria ${esc(category)}" ${canEdit ? '' : 'disabled'}>
+    </span>
+  </label>`;
+}
+
+function inventoryTab(character, canEdit) {
+  const data = readCharacterInventory(character);
+  const counts = Object.fromEntries(INVENTORY_CATEGORIES.map(category => [category, data.items.filter(item => item.category === category).length]));
+  const usedSpaces = data.items.reduce((sum, item) => sum + item.spaces, 0);
+  const rawStrength = String(character.attributes?.Força ?? '').trim().replace(',', '.');
+  const strength = rawStrength === '' ? NaN : Number(rawStrength);
+  const spaceLimit = Number.isFinite(strength) && strength >= 0 ? strength * 5 : null;
+  const spacesOver = spaceLimit !== null && usedSpaces > spaceLimit;
+  const formattedLimit = spaceLimit === null ? '—' : Number.isInteger(spaceLimit) ? String(spaceLimit) : spaceLimit.toFixed(1);
+  const entries = data.items.map(item => inventoryItemCard(character, item, canEdit));
+  if (data.legacy.trim()) entries.unshift(inventoryItemCard(character, { id: '__legacy__', name: 'Inventário anterior', description: data.legacy }, canEdit, true));
+
+  return `<section class="sheet-content-card inventory-panel" aria-labelledby="sheet-inventory-title">
+    <div class="sheet-panel-heading"><h2 id="sheet-inventory-title">Inventário</h2>${canEdit ? `<button class="button button-sm" type="button" data-action="add-inventory-item" data-id="${esc(character.id)}">＋ Novo item</button>` : ''}</div>
+    <form id="inventory-limits-form" class="inventory-summary" data-id="${esc(character.id)}">
+      <div class="inventory-category-grid">${['I', 'II', 'III', 'IV'].map(category => categoryCounter(category, counts[category], data.limits[category], canEdit)).join('')}</div>
+      <div class="inventory-summary-footer">
+        <label class="inventory-category-zero${data.limits['0'] !== null && counts['0'] > data.limits['0'] ? ' is-over-limit' : ''}">
+          <span>Categoria 0</span><strong>${counts['0']}</strong><small>itens</small>
+          <span class="inventory-category-limit">limite <input type="number" name="limit_0" min="0" step="1" value="${data.limits['0'] === null ? '' : data.limits['0']}" placeholder="∞" aria-label="Limite de itens da categoria 0" ${canEdit ? '' : 'disabled'}></span>
+        </label>
+        <div class="inventory-space-meter${spacesOver ? ' is-over-limit' : ''}" aria-live="polite">
+          <span>ESPAÇOS UTILIZADOS</span><strong>${usedSpaces} / ${formattedLimit}</strong><small>${spaceLimit === null ? 'Defina FOR na aba Geral para calcular o limite.' : 'Limite: Força × 5'}</small>
+        </div>
+        ${canEdit ? '<button class="button button-sm" type="submit">Salvar limites</button>' : ''}
+      </div>
+    </form>
+    <div class="inventory-items">${entries.length ? entries.join('') : '<p class="sheet-empty-copy">Nenhum item cadastrado.</p>'}</div>
+  </section>`;
+}
+
+function descriptionTab(character, canEdit) {
+  const description = readCharacterDescription(character);
+  const sections = [
+    ['Aparência', description.appearance],
+    ['Personalidade', description.personality],
+    ['História', description.history],
+  ];
+  return `<section class="sheet-content-card description-panel" aria-labelledby="sheet-description-title">
+    <div class="sheet-panel-heading"><h2 id="sheet-description-title">Descrição</h2>${canEdit ? `<button class="button button-sm" type="button" data-action="edit-character-description" data-id="${esc(character.id)}">Editar descrição</button>` : ''}</div>
+    <div class="description-field-grid">${sections.map(([title, value]) => `<article class="description-field"><h3>${title}</h3><div class="sheet-longtext">${value ? esc(value) : '<span class="sheet-empty-copy">Ainda não descrita.</span>'}</div></article>`).join('')}</div>
   </section>`;
 }
 
@@ -193,7 +320,7 @@ function skillTab(character, canEdit) {
   const training = parseSkillTraining(character.skills);
   return `<section class="sheet-content-card skills-panel" aria-labelledby="sheet-skills-title">
     <div class="skills-panel-heading">
-      <div><span class="sheet-kicker">TREINAMENTO</span><h2 id="sheet-skills-title">Perícias</h2></div>
+      <div><h2 id="sheet-skills-title">Perícias</h2></div>
       <p>Clique no bônus para alternar entre + 0, + 5, + 10 e + 15.</p>
     </div>
     <div class="skill-grid" role="list">
@@ -215,13 +342,10 @@ function skillTab(character, canEdit) {
 function tabContent(character, tab, canEdit) {
   if (tab === 'geral') return '';
   if (tab === 'pericias') return skillTab(character, canEdit);
-  if (tab === 'habilidades') return textTab('Habilidades', 'RECURSOS DO PERSONAGEM', character.abilities, 'Nenhuma habilidade registrada.');
-  if (tab === 'inventario') return textTab('Inventário', 'EQUIPAMENTOS', character.inventory, 'O inventário está vazio.');
+  if (tab === 'habilidades') return abilitiesTab(character, canEdit);
+  if (tab === 'inventario') return inventoryTab(character, canEdit);
   if (tab === 'rituais') return textTab('Rituais', 'CONHECIMENTO PARANORMAL', character.rituals, 'Nenhum ritual registrado.');
-  if (tab === 'descricao') return `<div class="sheet-description-stack">
-    ${textTab('Descrição do personagem', 'HISTÓRIA E APARÊNCIA', character.description, 'Nenhuma descrição registrada.')}
-    ${textTab('Anotações da mesa', 'NOTAS', character.notes, 'Nenhuma anotação registrada.')}
-  </div>`;
+  if (tab === 'descricao') return descriptionTab(character, canEdit);
   return '';
 }
 

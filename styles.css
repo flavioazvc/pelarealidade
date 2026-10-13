@@ -726,3 +726,78 @@ main { min-height: calc(100vh - 76px); }
 @media (max-width: 760px) {
   main { min-height: calc(100vh - 116px); }
 }
+
+
+/* Habilidades, inventário e descrição estruturados */
+.sheet-panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 18px; }
+.sheet-panel-heading h2 { margin: 0; font: 600 25px/1.1 var(--display); }
+.ability-list, .inventory-items { display: grid; gap: 10px; }
+.ability-card, .inventory-item-card { min-width: 0; overflow: hidden; border: 1px solid rgba(226, 199, 190, .17); border-radius: 11px; background: rgba(11, 10, 13, .62); }
+.ability-card[open], .inventory-item-card[open] { border-color: rgba(197, 119, 108, .42); background: rgba(17, 14, 18, .88); }
+.ability-card-summary, .inventory-item-summary { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 15px 17px; color: #f0e8e2; font: 600 16px/1.25 var(--display); cursor: pointer; list-style: none; }
+.ability-card-summary::-webkit-details-marker, .inventory-item-summary::-webkit-details-marker { display: none; }
+.ability-card-summary::after, .inventory-item-summary::after { content: '＋'; margin-left: auto; color: #d58b80; font: 700 16px/1 var(--mono); }
+.ability-card[open] > .ability-card-summary::after, .inventory-item-card[open] > .inventory-item-summary::after { content: '−'; }
+.ability-card-summary > span:first-child, .inventory-item-name { min-width: 0; overflow-wrap: anywhere; }
+.ability-expand-hint { color: #918985; font: 700 9px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.ability-card-body, .inventory-item-body { display: grid; gap: 13px; padding: 0 17px 17px; }
+.sheet-card-actions { display: flex; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
+.rule-text { color: #d1cbc5; font-size: 14px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rule-text-highlight { font-weight: 800; }
+.rule-text-highlight--pv { color: #ff777f; }
+.rule-text-highlight--pe { color: #f2c95f; }
+.rule-text-highlight--san { color: #c79cff; }
+.rule-text-highlight--skill-0 { color: #fff; font-weight: 900; }
+.rule-text-highlight--skill-5 { color: #83dca2; }
+.rule-text-highlight--skill-10 { color: #84bdff; }
+.rule-text-highlight--skill-15 { color: #edcc73; }
+.inventory-summary { display: grid; gap: 13px; margin-bottom: 21px; padding-bottom: 18px; border-bottom: 1px solid rgba(226, 199, 190, .12); }
+.inventory-category-grid { display: grid; grid-template-columns: repeat(4, minmax(88px, 132px)); gap: 10px; }
+.inventory-category-counter { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; aspect-ratio: 1; min-width: 0; padding: 10px; border: 1px solid rgba(226, 199, 190, .2); border-radius: 9px; background: rgba(10, 9, 12, .68); text-align: center; }
+.inventory-category-label { color: #c4aaa3; font: 700 9px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.inventory-category-count { color: #eee8e2; font: 600 29px/1 var(--display); }
+.inventory-category-limit { display: inline-flex; align-items: center; justify-content: center; gap: 4px; color: #99918e; font: 9px/1.2 var(--mono); }
+.inventory-category-limit input { width: 44px; min-height: 25px; padding: 2px 4px; border: 1px solid rgba(226, 199, 190, .2); border-radius: 5px; background: rgba(0, 0, 0, .3); color: #ded4cf; font: 700 11px var(--mono); text-align: center; }
+.inventory-category-limit input::placeholder { color: #8d8581; }
+.inventory-category-limit input:disabled { opacity: .8; }
+.inventory-category-counter.is-over-limit .inventory-category-count, .inventory-category-zero.is-over-limit > strong, .inventory-space-meter.is-over-limit > strong { color: #ff777f; }
+.inventory-category-counter.is-over-limit, .inventory-category-zero.is-over-limit { border-color: rgba(255, 94, 105, .62); background: rgba(94, 21, 30, .22); }
+.inventory-summary-footer { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.inventory-category-zero { display: inline-flex; align-items: center; gap: 7px; min-height: 48px; padding: 8px 12px; border: 1px solid rgba(226, 199, 190, .16); border-radius: 8px; background: rgba(10, 9, 12, .46); }
+.inventory-category-zero > span:first-child { color: #c4aaa3; font: 700 9px var(--mono); text-transform: uppercase; }
+.inventory-category-zero > strong { color: #eee8e2; font: 700 17px var(--display); }
+.inventory-category-zero > small { color: #99918e; font: 9px var(--mono); }
+.inventory-category-zero .inventory-category-limit { margin-left: 4px; }
+.inventory-space-meter { display: grid; gap: 3px; min-width: 180px; margin-right: auto; }
+.inventory-space-meter > span { color: #a28a84; font: 700 9px var(--mono); letter-spacing: .1em; }
+.inventory-space-meter > strong { color: #eee8e2; font: 600 20px/1.1 var(--display); }
+.inventory-space-meter > small { color: #918985; font-size: 10px; }
+.inventory-item-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; }
+.inventory-item-tags { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.inventory-item-tag { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; border: 1px solid rgba(196, 145, 122, .3); border-radius: 999px; color: #d3b8a9; font: 700 9px/1 var(--mono); white-space: nowrap; }
+.inventory-item-tag--legacy { border-color: rgba(225, 180, 93, .35); color: #e5c878; }
+.inventory-item-card--legacy { border-style: dashed; }
+.description-field-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.description-field { min-width: 0; min-height: 190px; padding: 16px; border: 1px solid rgba(226, 199, 190, .14); border-radius: 10px; background: rgba(10, 9, 12, .5); }
+.description-field h3 { margin: 0 0 12px; color: #eadbd3; font: 600 17px/1.2 var(--display); }
+.description-field .sheet-longtext { min-height: 100px; }
+@media (max-width: 760px) {
+  .inventory-category-grid { grid-template-columns: repeat(2, minmax(88px, 132px)); }
+  .description-field-grid { grid-template-columns: 1fr; }
+  .description-field { min-height: 130px; }
+}
+@media (max-width: 520px) {
+  .sheet-panel-heading { align-items: flex-start; flex-direction: column; }
+  .sheet-panel-heading .button { width: 100%; }
+  .inventory-category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inventory-category-counter { aspect-ratio: 1 / .85; }
+  .inventory-summary-footer { align-items: stretch; flex-direction: column; }
+  .inventory-category-zero { flex-wrap: wrap; }
+  .inventory-space-meter { min-width: 0; margin-right: 0; }
+  .inventory-item-summary { grid-template-columns: minmax(0, 1fr) auto; }
+  .inventory-item-tags { grid-column: 1; grid-row: 2; justify-content: flex-start; }
+  .inventory-item-summary > .ability-expand-hint { display: none; }
+  .inventory-item-summary::after { grid-column: 2; grid-row: 1; }
+  .ability-card-summary, .inventory-item-summary { padding: 13px; }
+  .ability-card-body, .inventory-item-body { padding: 0 13px 13px; }
+}
