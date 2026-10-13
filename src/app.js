@@ -254,17 +254,18 @@ function navRoute(r) { if(r.name==='campanha') return 'campaigns'; if(r.name==='
 
 function renderPlayerExperience(data, route) {
   const displayName = String(currentProfile?.display_name || '').trim() || 'jogador';
+  const playerExitButton = '<button class="button button-sm player-exit-button" type="button" data-action="logout">Sair</button>';
   const activeCampaignIds = new Set((data.sessions || []).filter(session => session.isLive).map(session => session.campaignId));
   const ownedCharacters = (data.characters || []).filter(character => character.ownerId === currentUser?.id
     && (character.campaignIds || []).some(campaignId => activeCampaignIds.has(campaignId)));
   if (!activeCampaignIds.size) {
     document.documentElement.dataset.playerMode = 'waiting';
-    main.innerHTML = `<section class="player-wait-screen" role="status" aria-live="polite"><p>Aguarde a sessão iniciar, ${esc(displayName)}.</p></section>`;
+    main.innerHTML = `<section class="player-wait-screen" role="status" aria-live="polite">${playerExitButton}<p>Aguarde a sessão iniciar, ${esc(displayName)}.</p></section>`;
     return;
   }
   if (!ownedCharacters.length) {
     document.documentElement.dataset.playerMode = 'active';
-    main.innerHTML = '<section class="player-wait-screen player-wait-screen--notice" role="status"><p>Sua ficha ainda não está vinculada a uma sessão ativa.</p></section>';
+    main.innerHTML = `<section class="player-wait-screen player-wait-screen--notice" role="status">${playerExitButton}<p>Sua ficha ainda não está vinculada a uma sessão ativa.</p></section>`;
     return;
   }
   const requested = route.name === 'personagem' ? ownedCharacters.find(character => character.id === route.id) : null;
@@ -278,7 +279,7 @@ function renderPlayerExperience(data, route) {
   const switcher = ownedCharacters.length > 1
     ? `<nav class="player-character-switcher" aria-label="Suas fichas">${ownedCharacters.map(item => `<a class="${item.id === character.id ? 'active' : ''}" href="#/personagem/${encodeURIComponent(item.id)}/geral">${esc(item.name || 'Personagem')}</a>`).join('')}</nav>`
     : '';
-  main.innerHTML = `<div class="player-session-view">${switcher}${renderCharacterSheet(character, [], section, false, true)}</div>`;
+  main.innerHTML = `<div class="player-session-view"><div class="player-session-actions">${playerExitButton}</div>${switcher}${renderCharacterSheet(character, [], section, false, true)}</div>`;
 }
 
 function renderHome(data) {

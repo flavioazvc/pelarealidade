@@ -897,6 +897,10 @@ html[data-player-mode="active"] #app-shell > main { display: block; }
 .player-character-switcher { display: flex; flex-wrap: wrap; gap: 8px; width: min(1500px, calc(100% - 36px)); margin: 0 auto; padding: 18px 0 0; }
 .player-character-switcher a { padding: 7px 11px; border: 1px solid #363036; border-radius: 3px; color: #bcb5bc; font-size: 11px; }
 .player-character-switcher a.active { border-color: #81558f; color: #e2c4f4; background: #211a25; }
+.player-exit-button { border-color: #514253; color: #d8c8dc; background: #100e12; }
+.player-exit-button:hover { border-color: #9760a8; color: #fff; background: #1b1420; }
+.player-wait-screen .player-exit-button { position: fixed; top: 16px; right: 18px; z-index: 10; }
+.player-session-actions { display: flex; justify-content: flex-end; width: min(1500px, calc(100% - 36px)); margin: 0 auto; padding-top: 14px; }
 
 @media (max-width: 760px) {
   .ritual-card-layout { grid-template-columns: minmax(0, 1fr) 108px; gap: 12px; }
