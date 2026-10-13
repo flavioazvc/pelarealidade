@@ -1,9 +1,9 @@
-import { loadState, getState, getStorageError, commit as commitLocal, uid, subscribe, importArchive, exportArchive, getLegacyState, setStorageScope, replaceState, clearMemory } from './store.js?v=4';
+import { loadState, getState, getStorageError, commit as commitLocal, uid, subscribe, importArchive, exportArchive, getLegacyState, setStorageScope, replaceState, clearMemory } from './store.js?v=5';
 import { mountBoard } from './board.js?v=3';
-import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=13';
-import { INVENTORY_CATEGORIES, readCharacterAbilities, serializeCharacterAbilities, readCharacterInventory, serializeCharacterInventory, readCharacterDescription, serializeCharacterDescription } from './character-data.js?v=1';
+import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=14';
+import { INVENTORY_CATEGORIES, RITUAL_ELEMENTS, RITUAL_CIRCLES, RITUAL_EXECUTIONS, RITUAL_RANGES, readCharacterAbilities, serializeCharacterAbilities, readCharacterInventory, serializeCharacterInventory, readCharacterDescription, serializeCharacterDescription, readCharacterRituals, serializeCharacterRituals } from './character-data.js?v=2';
 import { getClient, readProfile, signInWithNickname, requestAdminOperation, listProfiles, signOut } from './auth.js?v=1';
-import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=1';
+import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=2';
 
 const main = document.querySelector('#main');
 const appShell = document.querySelector('#app-shell');
@@ -22,6 +22,8 @@ let cloudSnapshot = null;
 let syncQueue = Promise.resolve();
 let profileCache = [];
 let characterPlayerProfiles = [];
+let playerRefreshTimer = null;
+let playerRefreshPending = false;
 loadState();
 let legacySnapshot = getLegacyState();
 
@@ -77,9 +79,42 @@ async function activateSession(client, user, profile) {
   document.documentElement.dataset.supabaseConnection = 'connected';
   updateChrome();
   render();
+  stopPlayerRefresh();
+  if (profile?.role === 'player') playerRefreshTimer = window.setInterval(() => void refreshPlayerWorkspace(), 10000);
+}
+
+function stopPlayerRefresh() {
+  if (playerRefreshTimer !== null) window.clearInterval(playerRefreshTimer);
+  playerRefreshTimer = null;
+  playerRefreshPending = false;
+}
+
+function stableSnapshot(value) {
+  if (Array.isArray(value)) return `[${value.map(stableSnapshot).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableSnapshot(value[key])}`).join(',')}}`;
+  return JSON.stringify(value);
+}
+
+async function refreshPlayerWorkspace() {
+  if (playerRefreshPending || currentProfile?.role !== 'player' || !currentClient || !currentUser) return;
+  playerRefreshPending = true;
+  const client = currentClient;
+  const userId = currentUser.id;
+  try {
+    const remote = await loadWorkspace(client, userId);
+    if (currentUser?.id !== userId || currentProfile?.role !== 'player') return;
+    if (stableSnapshot(remote) !== stableSnapshot(getState())) {
+      cloudSnapshot = structuredClone(remote);
+      try { replaceState(remote); }
+      catch { replaceState(remote, { persist: false }); }
+      render();
+    }
+  } catch { /* Mantém a tela atual durante falhas transitórias de rede. */ }
+  finally { playerRefreshPending = false; }
 }
 
 function clearSignedInState() {
+  stopPlayerRefresh();
   if (activeBoardDispose) { activeBoardDispose(); activeBoardDispose=null; }
   if (modal.open) modal.close();
   currentUser = null;
@@ -90,6 +125,7 @@ function clearSignedInState() {
   characterPlayerProfiles = [];
   setStorageScope(null);
   clearMemory();
+  document.documentElement.dataset.playerMode = 'none';
   renderLogin();
 }
 
@@ -146,7 +182,9 @@ function mayManageCampaign(campaign) {
 }
 
 function mayManageCharacter(character) {
-  return currentProfile?.role === 'admin' || character?.ownerId === currentUser?.id
+  if (currentProfile?.role === 'admin') return true;
+  if (currentProfile?.role === 'player') return false;
+  return character?.ownerId === currentUser?.id
     || (character?.campaignIds || []).some(id => mayManageCampaign(getState().campaigns.find(campaign => campaign.id === id)));
 }
 
@@ -159,7 +197,7 @@ function applyRoleControls() {
   main.querySelectorAll('[data-action="edit-character"],[data-action="delete-character"],[data-action="unlink-character"]').forEach(node=>{
     if(!mayManageCharacter(data.characters.find(character=>character.id===node.dataset.id))) node.hidden=true;
   });
-  main.querySelectorAll('[data-action="edit-session"],[data-action="delete-session"],[data-session-status]').forEach(node=>{
+  main.querySelectorAll('[data-action="edit-session"],[data-action="delete-session"],[data-action="toggle-session-live"],[data-session-status]').forEach(node=>{
     const session=data.sessions.find(item=>item.id===(node.dataset.id||node.dataset.sessionStatus));
     if(!mayManageCampaign(data.campaigns.find(campaign=>campaign.id===session?.campaignId))) node.hidden=true;
   });
@@ -187,6 +225,8 @@ function render() {
   if (!currentProfile) return;
   const r=routeInfo();
   if (activeBoardDispose) { activeBoardDispose(); activeBoardDispose=null; }
+  if (currentProfile.role === 'player') { renderPlayerExperience(getState(), r); return; }
+  document.documentElement.dataset.playerMode = 'none';
   document.querySelectorAll('.main-nav a').forEach(a=>a.classList.toggle('active', a.dataset.route===navRoute(r)));
   createMenu.hidden=true; createToggle.setAttribute('aria-expanded','false');
   const data=getState();
@@ -211,6 +251,35 @@ function render() {
   const page=main.querySelector('.page'); if(page) page.setAttribute('aria-label',document.title);
 }
 function navRoute(r) { if(r.name==='campanha') return 'campaigns'; if(r.name==='personagem') return 'characters'; return ({home:'home',campanhas:'campaigns',personagens:'characters',sessoes:'sessions',planejamento:'planning',acessos:'accesses'})[r.name] || ''; }
+
+function renderPlayerExperience(data, route) {
+  const displayName = String(currentProfile?.display_name || '').trim() || 'jogador';
+  const activeCampaignIds = new Set((data.sessions || []).filter(session => session.isLive).map(session => session.campaignId));
+  const ownedCharacters = (data.characters || []).filter(character => character.ownerId === currentUser?.id
+    && (character.campaignIds || []).some(campaignId => activeCampaignIds.has(campaignId)));
+  if (!activeCampaignIds.size) {
+    document.documentElement.dataset.playerMode = 'waiting';
+    main.innerHTML = `<section class="player-wait-screen" role="status" aria-live="polite"><p>Aguarde a sessão iniciar, ${esc(displayName)}.</p></section>`;
+    return;
+  }
+  if (!ownedCharacters.length) {
+    document.documentElement.dataset.playerMode = 'active';
+    main.innerHTML = '<section class="player-wait-screen player-wait-screen--notice" role="status"><p>Sua ficha ainda não está vinculada a uma sessão ativa.</p></section>';
+    return;
+  }
+  const requested = route.name === 'personagem' ? ownedCharacters.find(character => character.id === route.id) : null;
+  const character = requested || ownedCharacters[0];
+  const sections = ['geral', 'pericias', 'habilidades', 'inventario', 'rituais', 'descricao'];
+  const section = requested && sections.includes(route.section) ? route.section : 'geral';
+  if (route.name !== 'personagem' || route.id !== character.id || route.section !== section) {
+    history.replaceState(null, '', `#/personagem/${encodeURIComponent(character.id)}/${section}`);
+  }
+  document.documentElement.dataset.playerMode = 'active';
+  const switcher = ownedCharacters.length > 1
+    ? `<nav class="player-character-switcher" aria-label="Suas fichas">${ownedCharacters.map(item => `<a class="${item.id === character.id ? 'active' : ''}" href="#/personagem/${encodeURIComponent(item.id)}/geral">${esc(item.name || 'Personagem')}</a>`).join('')}</nav>`
+    : '';
+  main.innerHTML = `<div class="player-session-view">${switcher}${renderCharacterSheet(character, [], section, false, true)}</div>`;
+}
 
 function renderHome(data) {
   const recent=[...data.campaigns.map(x=>({...x,_type:'Campanha'})),...data.characters.map(x=>({...x,_type:'Ficha'})),...data.sessions.map(x=>({...x,_type:'Sessão'}))]
@@ -343,7 +412,21 @@ function renderCharacterDetail(data,id,section='geral') {
   const linked=data.campaigns.filter(campaign=>(character.campaignIds||[]).includes(campaign.id));
   return renderCharacterSheet(character,linked,section,mayManageCharacter(character));
 }
-function renderSessions(data) { const list=data.sessions.slice().sort(byDate); return `<section class="page">${header('Sessões','CADERNO DE SESSÕES','Registre data, estado e anotações sem conteúdo narrativo automático.',`<button class="button button-primary" data-create="session">＋ Nova sessão</button>`)}<div class="tabs"><span class="active">Todas · ${list.length}</span><span>Planejadas · ${list.filter(s=>s.status==='Planejada').length}</span><span>Realizadas · ${list.filter(s=>s.status==='Realizada').length}</span><span>Canceladas · ${list.filter(s=>s.status==='Cancelada').length}</span></div>${list.length?`<div class="card-list">${list.map(s=>`<article class="record-card"><div class="record-main"><h3>${esc(s.title)}</h3><p>${esc(data.campaigns.find(c=>c.id===s.campaignId)?.name||'Campanha removida')} · ${esc(s.description||'Sem descrição.')}</p><div class="record-meta"><span>${s.date?fmtDate(s.date,{dateStyle:'medium',timeStyle:'short'}):'DATA A DEFINIR'}</span><span>${(s.notes||'').length} CARACTERES DE ANOTAÇÕES</span></div></div><div class="record-actions"><select class="status-select" data-session-status="${esc(s.id)}" aria-label="Estado da sessão">${['Planejada','Realizada','Cancelada'].map(v=>`<option ${s.status===v?'selected':''}>${v}</option>`).join('')}</select><button class="button button-sm" data-action="edit-session" data-id="${esc(s.id)}">Editar</button><button class="button button-sm" data-action="delete-session" data-id="${esc(s.id)}">Excluir</button></div></article>`).join('')}</div>`:empty('Nenhuma sessão cadastrada','Crie uma sessão vinculada a uma campanha existente.',data.campaigns.length?`<button class="button button-primary" data-create="session">＋ Criar sessão</button>`:`<button class="button" data-create="campaign">Criar uma campanha primeiro</button>`)}</section>`; }
+function renderSessions(data) {
+  const list = data.sessions.slice().sort(byDate);
+  const counts = ['Planejada', 'Realizada', 'Cancelada'].map(status => `<span>${status} · ${list.filter(session => session.status === status).length}</span>`).join('');
+  const records = list.map(session => {
+    const campaign = data.campaigns.find(item => item.id === session.campaignId);
+    const canManage = mayManageCampaign(campaign);
+    const liveBadge = session.isLive ? '<span class="tag red session-live-badge">SESSÃO AO VIVO</span>' : '';
+    const liveButton = canManage && (session.isLive || session.status === 'Planejada')
+      ? `<button class="button button-sm ${session.isLive ? 'button-danger' : 'button-primary'}" data-action="toggle-session-live" data-id="${esc(session.id)}">${session.isLive ? 'Encerrar sessão' : 'Iniciar sessão'}</button>`
+      : '';
+    const managerControls = canManage ? `<select class="status-select" data-session-status="${esc(session.id)}" aria-label="Estado da sessão">${['Planejada', 'Realizada', 'Cancelada'].map(value => `<option ${session.status === value ? 'selected' : ''}>${value}</option>`).join('')}</select><button class="button button-sm" data-action="edit-session" data-id="${esc(session.id)}">Editar</button><button class="button button-sm" data-action="delete-session" data-id="${esc(session.id)}">Excluir</button>` : '';
+    return `<article class="record-card session-record${session.isLive ? ' session-record--live' : ''}"><div class="record-main"><div class="session-record-heading"><h3>${esc(session.title)}</h3>${liveBadge}</div><p>${esc(campaign?.name || 'Campanha removida')} · ${esc(session.description || 'Sem descrição.')}</p><div class="record-meta"><span>${session.date ? fmtDate(session.date, { dateStyle: 'medium', timeStyle: 'short' }) : 'DATA A DEFINIR'}</span><span>${(session.notes || '').length} CARACTERES DE ANOTAÇÕES</span></div></div><div class="record-actions">${liveButton}${managerControls}</div></article>`;
+  }).join('');
+  return `<section class="page">${header('Sessões', 'CADERNO DE SESSÕES', 'Registre data, estado e anotações sem conteúdo narrativo automático.', '<button class="button button-primary" data-create="session">＋ Nova sessão</button>')}<div class="tabs"><span class="active">Todas · ${list.length}</span>${counts}</div>${list.length ? `<div class="card-list">${records}</div>` : empty('Nenhuma sessão cadastrada', 'Crie uma sessão vinculada a uma campanha existente.', data.campaigns.length ? '<button class="button button-primary" data-create="session">＋ Criar sessão</button>' : '<button class="button" data-create="campaign">Criar uma campanha primeiro</button>')}</section>`;
+}
 function renderPlanning(data) {
   const actions=`<a href="#/campanhas" class="button">Ver campanhas</a>`;
   return `<section class="page"><div class="page-head"><div><h1>Planejamento</h1></div><div class="page-head-actions">${actions}</div></div>
@@ -456,7 +539,6 @@ async function characterForm(ch={},preselected='') {
     resourceFields,
     valueField('defense','Defesa',ch.defense||'','text'),
     attr,
-    textareaField('rituals','Rituais',ch.rituals||''),
     textareaField('progress','Progressão / outros campos',ch.progress||''),
     campaigns,
   ].join('');
@@ -492,6 +574,19 @@ function characterDescriptionForm(character) {
     'Salvar descrição','character-description-form');
 }
 
+function ritualForm(character, item = null, itemId = '', legacy = '') {
+  const id = itemId || item?.id || '';
+  const options = (name, label, values, selected) => `<div class="field"><label for="f-${name}">${label}</label><select id="f-${name}" name="${name}" required>${values.map(value => `<option value="${esc(value)}" ${selected === value ? 'selected' : ''}>${esc(value)}</option>`).join('')}</select></div>`;
+  const deleteButton = id && id !== '__legacy__'
+    ? `<div class="ritual-form-delete-row"><button class="button button-sm button-danger" type="button" data-action="delete-ritual" data-id="${esc(character.id)}" data-item="${esc(id)}">Remover ritual</button></div>`
+    : '';
+  const description = item?.description || legacy || '';
+  const specialFields = `<div class="ritual-variant-form"><h3>Discente · opcional</h3>${valueField('discenteCost', 'Custo adicional em PE', item?.discenteCost || '', 'number', 'min="0" step="1" placeholder="Ex.: 5"')}${sheetTextareaField('discente', 'Efeito discente', item?.discente || '', 10000)}</div><div class="ritual-variant-form"><h3>Verdadeiro · opcional</h3>${valueField('trueCost', 'Custo adicional em PE', item?.trueCost || '', 'number', 'min="0" step="1" placeholder="Ex.: 9"')}${sheetTextareaField('trueEffect', 'Efeito verdadeiro', item?.trueEffect || '', 10000)}</div>`;
+  openModal(id ? 'Editar ritual' : 'Novo ritual', 'Defina os parâmetros do ritual e, se quiser, seus aprimoramentos Discente e Verdadeiro.',
+    `<input type="hidden" name="characterId" value="${esc(character.id)}"><input type="hidden" name="itemId" value="${esc(id)}"><input type="hidden" name="convertLegacy" value="${legacy ? 'true' : ''}"><div class="form-grid ritual-form-grid">${valueField('name', 'Nome do ritual', item?.name || '', 'text', 'required maxlength="120"')}${options('element', 'Elemento', RITUAL_ELEMENTS, item?.element || RITUAL_ELEMENTS[0])}${options('circle', 'Círculo', RITUAL_CIRCLES, item?.circle || RITUAL_CIRCLES[0])}${options('execution', 'Execução', RITUAL_EXECUTIONS, item?.execution || RITUAL_EXECUTIONS[0])}${options('range', 'Alcance', RITUAL_RANGES, item?.range || RITUAL_RANGES[0])}${valueField('target', 'Alvo (personalizado)', item?.target || '', 'text', 'required maxlength="300" placeholder="Ex.: uma criatura"')}${valueField('duration', 'Duração (personalizada)', item?.duration || '', 'text', 'required maxlength="300" placeholder="Ex.: cena"')}${valueField('resistance', 'Resistência (personalizada)', item?.resistance || '', 'text', 'required maxlength="300" placeholder="Ex.: Fortitude parcial; ou Nenhuma"')}${valueField('image', 'Imagem do ritual (URL opcional)', item?.image || '', 'url', 'maxlength="2000" placeholder="https://…"')}${sheetTextareaField('description', 'Efeito base do ritual', description, id === '__legacy__' ? 20000 : 10000)}${specialFields}</div>${deleteButton}`,
+    'Salvar ritual', 'ritual-form');
+}
+
 function saveCharacterFields(characterId, fields, message, closeModal=false) {
   const ok=commitAndSync(d=>{
     const character=d.characters.find(item=>item.id===characterId);
@@ -520,7 +615,7 @@ function sessionForm(s={},preselected='') {
 
 function handleCreate(type,campaignId='') {
   createMenu.hidden=true; createToggle.setAttribute('aria-expanded','false');
-  if((type==='campaign'||type==='session')&&currentProfile?.role==='player'){toast('Essa ação é restrita a mestres e ao administrador.','warning');return;}
+  if(['campaign','session','board','character'].includes(type)&&currentProfile?.role==='player'){toast('Essa ação é restrita a mestres e ao administrador.','warning');return;}
   if(type==='campaign') campaignForm();
   else if(type==='character') characterForm({},campaignId);
   else if(type==='session') { if(!getState().campaigns.some(mayManageCampaign)){toast('Você não tem uma campanha com permissão de gerenciamento.','warning');return;} sessionForm({},campaignId); }
@@ -550,6 +645,34 @@ document.addEventListener('click',event=>{
     if(typeof skills!=='string')return;
     const ok=commitAndSync(d=>{const target=d.characters.find(item=>item.id===id);if(target){target.skills=skills;target.updatedAt=new Date().toISOString();}});
     if(ok)render();else toast('Não foi possível salvar o bônus da perícia.','error');
+    return;
+  }
+  if(action==='add-ritual'){
+    const character=data.characters.find(item=>item.id===id);
+    if(character&&mayManageCharacter(character))ritualForm(character);
+    return;
+  }
+  if(action==='convert-legacy-ritual'){
+    const character=data.characters.find(item=>item.id===id);
+    if(character&&mayManageCharacter(character))ritualForm(character,null,'',readCharacterRituals(character).legacy);
+    return;
+  }
+  if(action==='edit-ritual'){
+    const character=data.characters.find(item=>item.id===id);
+    if(!character||!mayManageCharacter(character))return;
+    const itemId=button.dataset.item,stored=readCharacterRituals(character);
+    const item=stored.items.find(entry=>entry.id===itemId);
+    if(item)ritualForm(character,item,itemId);
+    return;
+  }
+  if(action==='delete-ritual'){
+    const character=data.characters.find(item=>item.id===id);
+    if(!character||!mayManageCharacter(character))return;
+    const itemId=button.dataset.item,stored=readCharacterRituals(character);
+    const item=stored.items.find(entry=>entry.id===itemId);
+    if(!item){toast('O ritual não foi encontrado.','warning');return;}
+    if(!confirm(`Remover o ritual “${item?.name||'sem nome'}”? Esta ação não pode ser desfeita.`))return;
+    saveStructuredCharacterField(id,'rituals',serializeCharacterRituals,{...stored,items:stored.items.filter(entry=>entry.id!==itemId)},'Ritual removido.',true);
     return;
   }
   if(action==='add-ability'){
@@ -615,6 +738,22 @@ document.addEventListener('click',event=>{
   if(action==='edit-campaign'){const c=data.campaigns.find(x=>x.id===id);if(c&&mayManageCampaign(c))campaignForm(c);return;}
   if(action==='edit-character'){const c=data.characters.find(x=>x.id===id);if(c&&mayManageCharacter(c))characterForm(c);return;}
   if(action==='edit-session'){const s=data.sessions.find(x=>x.id===id);if(s&&mayManageCampaign(data.campaigns.find(c=>c.id===s.campaignId)))sessionForm(s);return;}
+  if(action==='toggle-session-live'){
+    const session=data.sessions.find(item=>item.id===id);
+    if(!session||!mayManageCampaign(data.campaigns.find(campaign=>campaign.id===session.campaignId)))return;
+    const activate=!session.isLive,now=new Date().toISOString();
+    const ok=commitAndSync(d=>{
+      for(const item of d.sessions){
+        if(item.campaignId!==session.campaignId)continue;
+        if(item.id===id)item.isLive=activate;
+        else if(activate)item.isLive=false;
+        if(item.id===id||(activate&&item.campaignId===session.campaignId))item.updatedAt=now;
+      }
+    });
+    if(ok){toast(activate?'Sessão iniciada. Jogadores vinculados verão somente a própria ficha.':'Sessão encerrada. Os jogadores voltarão à tela de espera.');render();}
+    else toast('Não foi possível atualizar o estado da sessão.','error');
+    return;
+  }
   if(action==='delete-campaign'){const c=data.campaigns.find(x=>x.id===id);if(!c||!mayManageCampaign(c))return;const sc=data.sessions.filter(s=>s.campaignId===id).length;const chars=data.characters.filter(ch=>(ch.campaignIds||[]).includes(id)).length;const approved=confirm(`Excluir a campanha “${c.name}”? Isso removerá ${sc} sessão(ões) e o quadro de planejamento. As ${chars} ficha(s) associada(s) serão preservadas e apenas desassociadas.`);if(!approved)return;const ok=commitAndSync(d=>{d.campaigns=d.campaigns.filter(x=>x.id!==id);d.sessions=d.sessions.filter(s=>s.campaignId!==id);delete d.boards[id];d.characters=d.characters.map(ch=>({...ch,campaignIds:(ch.campaignIds||[]).filter(cid=>cid!==id)}));});if(ok){toast('Campanha removida. Fichas originais preservadas.');location.hash='#/campanhas';}else toast('Não foi possível excluir a campanha.','error');return;}
   if(action==='delete-character'){const ch=data.characters.find(x=>x.id===id);if(!ch||!mayManageCharacter(ch)||!confirm(`Excluir a ficha de “${ch.name}”? As associações com campanhas serão removidas, mas as campanhas continuarão. Esta ação não pode ser desfeita.`))return;const ok=commitAndSync(d=>{d.characters=d.characters.filter(x=>x.id!==id);});ok?(toast('Ficha excluída.'),location.hash='#/personagens'):toast('Não foi possível excluir a ficha.','error');return;}
   if(action==='delete-session'){const s=data.sessions.find(x=>x.id===id);if(!s||!mayManageCampaign(data.campaigns.find(c=>c.id===s.campaignId))||!confirm(`Excluir a sessão “${s.title}”? Esta ação não pode ser desfeita.`))return;commitAndSync(d=>{d.sessions=d.sessions.filter(x=>x.id!==id);})?toast('Sessão excluída.'):toast('Não foi possível excluir a sessão.','error');render();return;}
@@ -661,12 +800,30 @@ document.addEventListener('submit',async event=>{
 
 document.addEventListener('submit',event=>{
   const form=event.target;
-  if(['ability-form','inventory-item-form','character-description-form','inventory-limits-form'].includes(form.id)){
+  if(['ritual-form','ability-form','inventory-item-form','character-description-form','inventory-limits-form'].includes(form.id)){
     event.preventDefault();if(!form.reportValidity())return;
     const fd=new FormData(form);
     const characterId=String(fd.get('characterId')||form.dataset.id||'');
     const character=getState().characters.find(item=>item.id===characterId);
     if(!character||!mayManageCharacter(character)){toast('Você não tem permissão para editar esta ficha.','warning');return;}
+
+    if(form.id==='ritual-form'){
+      const itemId=String(fd.get('itemId')||''),name=String(fd.get('name')||'').trim();
+      const element=String(fd.get('element')||''),circle=String(fd.get('circle')||''),execution=String(fd.get('execution')||''),range=String(fd.get('range')||'');
+      const target=String(fd.get('target')||'').trim(),duration=String(fd.get('duration')||'').trim(),resistance=String(fd.get('resistance')||'').trim();
+      const image=String(fd.get('image')||'').trim(),description=String(fd.get('description')||'');
+      const discente=String(fd.get('discente')||''),trueEffect=String(fd.get('trueEffect')||'');
+      const discenteCost=String(fd.get('discenteCost')||'').trim(),trueCost=String(fd.get('trueCost')||'').trim();
+      if(!RITUAL_ELEMENTS.includes(element)||!RITUAL_CIRCLES.includes(circle)||!RITUAL_EXECUTIONS.includes(execution)||!RITUAL_RANGES.includes(range)){toast('Selecione opções válidas para o ritual.','error');return;}
+      if(image&&!validImageUrl(image)){toast('A imagem do ritual precisa usar uma URL HTTP ou HTTPS válida.','error');return;}
+      for(const [label,cost] of [['Discente',discenteCost],['Verdadeiro',trueCost]])if(cost!==''&&(!Number.isInteger(Number(cost))||Number(cost)<0)){toast(`O custo ${label} precisa ser um número inteiro não negativo.`,'error');return;}
+      const stored=readCharacterRituals(character);let items=[...stored.items],legacy=fd.get('convertLegacy')==='true'?'':stored.legacy;
+      const record={id:itemId&&itemId!=='__legacy__'?itemId:uid(),name,element,circle,execution,range,target,duration,resistance,image,description,discente,discenteCost,trueEffect,trueCost};
+      if(itemId){const index=items.findIndex(item=>item.id===itemId);if(index<0){toast('O ritual não foi encontrado.','error');return;}items[index]=record;}
+      else items.push(record);
+      saveStructuredCharacterField(characterId,'rituals',serializeCharacterRituals,{items,legacy},'Ritual salvo.',true);
+      return;
+    }
 
     if(form.id==='ability-form'){
       const itemId=String(fd.get('itemId')||''),name=String(fd.get('name')||'').trim(),description=String(fd.get('description')||'');
@@ -742,7 +899,7 @@ document.addEventListener('submit',event=>{
     const record={id:id||uid(),name:String(fd.get('name')||'').trim(),playerNote:String(fd.get('playerNote')||'').trim(),playerName,portrait,origin:String(fd.get('origin')||'').trim(),className:String(fd.get('className')||'').trim(),path:String(fd.get('path')||'').trim(),nex:String(fd.get('nex')||'').trim(),rank:String(fd.get('rank')||'').trim(),pv:String(fd.get('pv')||'').trim(),pvMax:String(fd.get('pvMax')||'').trim(),pe:String(fd.get('pe')||'').trim(),peMax:String(fd.get('peMax')||'').trim(),san:String(fd.get('san')||'').trim(),sanMax:String(fd.get('sanMax')||'').trim(),defense:String(fd.get('defense')||'').trim(),attributes,skills:String(fd.get('skills')||'').trim(),abilities:old?.abilities??'',inventory:old?.inventory??'',rituals:String(fd.get('rituals')||'').trim(),description:old?.description??'',progress:String(fd.get('progress')||'').trim(),notes:old?.notes??'',campaignIds,createdAt:old?.createdAt||now,updatedAt:now,ownerId,createdBy:old?.createdBy||currentUser.id};
     ok=commitAndSync(d=>{const index=d.characters.findIndex(x=>x.id===id);if(index>=0)d.characters[index]=record;else d.characters.push(record);});success=id?'Ficha atualizada.':'Ficha criada.';
   } else if(form.querySelector('[name="campaignId"]')) {
-    const old=getState().sessions.find(x=>x.id===id);const record={id:id||uid(),campaignId:String(fd.get('campaignId')),title:String(fd.get('title')||'').trim(),date:String(fd.get('date')||''),description:String(fd.get('description')||'').trim(),status:String(fd.get('status')||'Planejada'),notes:String(fd.get('notes')||'').trim(),createdAt:old?.createdAt||now,updatedAt:now,createdBy:old?.createdBy||currentUser.id};
+    const old=getState().sessions.find(x=>x.id===id);const status=String(fd.get('status')||'Planejada');const record={id:id||uid(),campaignId:String(fd.get('campaignId')),title:String(fd.get('title')||'').trim(),date:String(fd.get('date')||''),description:String(fd.get('description')||'').trim(),status,isLive:old?.isLive===true&&status==='Planejada',notes:String(fd.get('notes')||'').trim(),createdAt:old?.createdAt||now,updatedAt:now,createdBy:old?.createdBy||currentUser.id};
     if(!['Planejada','Realizada','Cancelada'].includes(record.status)){toast('Estado inválido.','error');return;}
     ok=commitAndSync(d=>{if(!d.campaigns.some(c=>c.id===record.campaignId))throw new Error('Campanha não encontrada.');const index=d.sessions.findIndex(x=>x.id===id);if(index>=0)d.sessions[index]=record;else d.sessions.push(record);});success=id?'Sessão atualizada.':'Sessão criada.';
   }
@@ -751,7 +908,7 @@ document.addEventListener('submit',event=>{
 
 document.addEventListener('change',event=>{
   const target=event.target;
-  if(target.matches('[data-session-status]')){const id=target.dataset.sessionStatus;const ok=commitAndSync(d=>{const s=d.sessions.find(x=>x.id===id);if(s){s.status=target.value;s.updatedAt=new Date().toISOString();}});if(ok){toast('Estado da sessão atualizado.');render();}else toast('Falha ao salvar o estado da sessão.','error');}
+  if(target.matches('[data-session-status]')){const id=target.dataset.sessionStatus;const ok=commitAndSync(d=>{const s=d.sessions.find(x=>x.id===id);if(s){s.status=target.value;if(s.status!=='Planejada')s.isLive=false;s.updatedAt=new Date().toISOString();}});if(ok){toast('Estado da sessão atualizado.');render();}else toast('Falha ao salvar o estado da sessão.','error');}
   if(target.id==='archive-file'&&target.files?.[0]){const file=target.files[0];if(!confirm('Importar este arquivo substituirá os registros locais atuais. Exporte uma cópia antes de continuar. Os registros remotos também serão sincronizados. Prosseguir?')){target.value='';return;}file.text().then(text=>{if(importArchive(text)){commitAndSync(()=>{});toast('Arquivo importado; sincronização iniciada.');render();}else toast('Não foi possível confirmar a gravação do arquivo.','error');}).catch(error=>toast(`Falha ao importar o arquivo: ${error.message}`,'error')).finally(()=>target.value='');}
 });
 

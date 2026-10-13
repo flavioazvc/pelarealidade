@@ -830,3 +830,90 @@ main { min-height: calc(100vh - 76px); }
 @media (max-width: 520px) {
   .inventory-item-body { padding: 0 13px 11px; }
 }
+
+
+/* Rituais estruturados */
+.ritual-list { display: grid; gap: 13px; }
+.ritual-card { overflow: hidden; border: 1px solid #3a343c; border-radius: 4px; background: rgba(25, 23, 27, .94); box-shadow: 0 8px 24px #0003; }
+.ritual-card[open] { border-color: #745277; }
+.ritual-card-summary { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 15px 17px; list-style: none; cursor: pointer; }
+.ritual-card-summary::-webkit-details-marker { display: none; }
+.ritual-summary-title { min-width: 0; flex: 1; color: #f1ecef; font: 600 15px/1.3 var(--display); overflow-wrap: anywhere; }
+.ritual-element-badge { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; border-radius: 3px; background: #502b34; color: #f2aaa5; font-size: 10px; font-weight: 800; white-space: nowrap; }
+.ritual-element-badge--conhecimento { background: #362b50; color: #c8a9ff; }
+.ritual-element-badge--morte { background: #303238; color: #b8bec9; }
+.ritual-element-badge--sangue { background: #602d32; color: #ffaaa2; }
+.ritual-element-badge--energia { background: #554723; color: #f0d476; }
+.ritual-element-badge--medo { background: #343436; color: #e6e1e3; }
+.ritual-element-badge--legacy { background: #51462d; color: #e6cb87; }
+.ritual-expand-hint { color: #bd79ef; font: 700 19px/1 var(--mono); transition: transform .16s ease; }
+.ritual-card[open] > .ritual-card-summary .ritual-expand-hint { transform: rotate(180deg); }
+.ritual-card-body { display: grid; gap: 13px; padding: 0 17px 15px; }
+.ritual-card-layout { display: grid; grid-template-columns: minmax(0, 1fr) 148px; gap: 20px; align-items: start; }
+.ritual-card-copy { min-width: 0; }
+.ritual-card-image-wrap { width: 148px; height: 148px; }
+.ritual-art { display: block; width: 100%; height: 100%; border: 1px solid #564b58; border-radius: 50%; background: radial-gradient(circle at center, #25222a 0 25%, #171619 62%, #0e0d10); object-fit: cover; }
+.ritual-art--empty { display: grid; place-items: center; color: #bc78ef; font-size: 50px; box-shadow: inset 0 0 0 8px #ffffff05, 0 0 20px #874bb025; }
+.ritual-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 18px; margin: 0 0 15px; }
+.ritual-facts p { margin: 0; color: #d5cfd6; font-size: 12px; }
+.ritual-facts strong { color: #b978e8; font-weight: 600; }
+.ritual-description { color: #eee9ec; white-space: pre-wrap; line-height: 1.65; }
+.ritual-variant { margin-top: 13px; padding: 11px 13px; border-left: 2px solid #9b62c6; background: #211c26; }
+.ritual-variant h4 { margin: 0 0 5px; color: #bc8bf2; font-size: 12px; }
+.ritual-variant h4 span { color: #d3abf2; font-weight: 500; }
+.ritual-variant .rule-text { color: #e8e2e7; font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
+.ritual-card-actions { display: flex; justify-content: space-between; gap: 9px; padding-top: 3px; }
+.ritual-card-actions .button { min-height: 28px; padding: 4px 9px; font-size: 10px; }
+.ritual-card--legacy { border-style: dashed; }
+.ritual-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ritual-form-grid > .field:has(textarea[name="description"]), .ritual-form-grid > .ritual-variant-form { grid-column: 1 / -1; }
+.ritual-variant-form { display: grid; grid-template-columns: minmax(0, .65fr) minmax(0, 1.35fr); gap: 10px 14px; align-items: start; padding: 12px; border: 1px solid #36313a; background: #17151a; }
+.ritual-variant-form h3 { grid-column: 1 / -1; margin: 0; color: #c18be9; font-size: 12px; }
+.ritual-variant-form .field.full { grid-column: auto; }
+.ritual-form-delete-row { margin-top: 14px; }
+.session-record--live { border-color: #75383d; box-shadow: inset 3px 0 #b64a50; }
+.session-record-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.session-record-heading h3 { margin: 0; }
+.session-live-badge { animation: session-live-glow 2.2s ease-in-out infinite alternate; }
+@keyframes session-live-glow { from { box-shadow: 0 0 0 #b64a5000; } to { box-shadow: 0 0 12px #b64a5055; } }
+
+/* Modo isolado dos jogadores: tela preta até uma sessão ativa, depois apenas a própria ficha. */
+html[data-player-mode="waiting"], html[data-player-mode="active"], html[data-player-mode="waiting"] body, html[data-player-mode="active"] body { min-height: 100vh; background: #000 !important; }
+html[data-player-mode="waiting"] .paranormal-atmosphere, html[data-player-mode="active"] .paranormal-atmosphere,
+html[data-player-mode="waiting"] .topbar, html[data-player-mode="active"] .topbar,
+html[data-player-mode="waiting"] .toast-region, html[data-player-mode="active"] .toast-region,
+html[data-player-mode="waiting"] #modal, html[data-player-mode="active"] #modal,
+html[data-player-mode="waiting"] .skip-link, html[data-player-mode="active"] .skip-link { display: none !important; }
+html[data-player-mode="waiting"] #app-shell, html[data-player-mode="active"] #app-shell { display: block !important; min-height: 100vh; background: #000; }
+html[data-player-mode="waiting"] #app-shell > main, html[data-player-mode="active"] #app-shell > main { width: 100%; min-height: 100vh; margin: 0; padding: 0; background: #000; }
+html[data-player-mode="waiting"] #app-shell > main { display: grid; place-items: center; }
+html[data-player-mode="active"] #app-shell > main { display: block; }
+.player-wait-screen { display: grid; place-items: center; width: 100%; min-height: 100vh; padding: 24px; background: #000; color: #f4f2f2; text-align: center; }
+.player-wait-screen p { margin: 0; font: 500 clamp(18px, 3vw, 24px)/1.5 var(--sans); letter-spacing: .01em; }
+.player-wait-screen--notice p { color: #c8c0c5; font-size: 16px; }
+.player-session-view { min-height: 100vh; background: #000; }
+.player-sheet { width: min(1500px, calc(100% - 36px)); min-height: 100vh; margin: 0 auto; padding: 22px 0 36px; }
+.player-sheet .sheet-toolbar { display: none; }
+.player-character-switcher { display: flex; flex-wrap: wrap; gap: 8px; width: min(1500px, calc(100% - 36px)); margin: 0 auto; padding: 18px 0 0; }
+.player-character-switcher a { padding: 7px 11px; border: 1px solid #363036; border-radius: 3px; color: #bcb5bc; font-size: 11px; }
+.player-character-switcher a.active { border-color: #81558f; color: #e2c4f4; background: #211a25; }
+
+@media (max-width: 760px) {
+  .ritual-card-layout { grid-template-columns: minmax(0, 1fr) 108px; gap: 12px; }
+  .ritual-card-image-wrap { width: 108px; height: 108px; }
+  .ritual-facts { grid-template-columns: 1fr; gap: 5px; }
+  .ritual-variant-form { grid-template-columns: 1fr; }
+  .ritual-variant-form h3 { grid-column: auto; }
+  .player-sheet { width: calc(100% - 24px); padding-top: 14px; }
+}
+@media (max-width: 520px) {
+  .ritual-card-summary { flex-wrap: wrap; gap: 8px; padding: 13px; }
+  .ritual-summary-title { flex-basis: calc(100% - 26px); }
+  .ritual-card-summary .ritual-element-badge { order: 2; }
+  .ritual-expand-hint { order: 1; margin-left: auto; }
+  .ritual-card-body { padding: 0 13px 13px; }
+  .ritual-card-layout { grid-template-columns: 1fr; }
+  .ritual-card-image-wrap { width: 100px; height: 100px; grid-row: 1; }
+  .ritual-form-grid { grid-template-columns: 1fr; }
+  .ritual-form-grid > .field:has(textarea[name="description"]), .ritual-form-grid > .ritual-variant-form { grid-column: auto; }
+}
