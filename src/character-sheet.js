@@ -188,13 +188,12 @@ function highlightRuleText(value, character) {
 function abilityCard(character, item, canEdit, legacy = false) {
   const itemId = legacy ? '__legacy__' : item.id;
   const description = String(item.description ?? '');
-  const controls = canEdit ? `<div class="sheet-card-actions">
+  const editButton = canEdit ? `<div class="ability-card-actions">
       <button class="button button-sm" type="button" data-action="edit-ability" data-id="${esc(character.id)}" data-item="${esc(itemId)}">Editar</button>
-      <button class="button button-sm button-danger" type="button" data-action="delete-ability" data-id="${esc(character.id)}" data-item="${esc(itemId)}">Excluir</button>
     </div>` : '';
   return `<details class="ability-card">
-    <summary class="ability-card-summary"><span>${esc(item.name || 'Habilidade sem nome')}</span><span class="ability-expand-hint">Ver descrição</span></summary>
-    <div class="ability-card-body">${controls}<div class="rule-text">${description ? highlightRuleText(description, character) : '<span class="sheet-empty-copy">Sem descrição cadastrada.</span>'}</div></div>
+    <summary class="ability-card-summary"><span>${esc(item.name || 'Habilidade sem nome')}</span></summary>
+    <div class="ability-card-body"><div class="rule-text">${description ? highlightRuleText(description, character) : '<span class="sheet-empty-copy">Sem descrição cadastrada.</span>'}</div>${editButton}</div>
   </details>`;
 }
 
