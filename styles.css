@@ -606,9 +606,7 @@ h3 { font-size: 18px; line-height: 1.3; }
 .sheet-kicker { display: block; color: #ba7770; font: 9px var(--mono); letter-spacing: .17em; text-transform: uppercase; }
 .attribute-art { position: relative; width: min(100%, 460px); aspect-ratio: 1; margin: 14px auto 0; overflow: hidden; background: transparent; }
 .attribute-reference-art { display: block; width: 100%; height: 100%; object-fit: contain; opacity: .92; filter: drop-shadow(0 0 14px rgba(241, 237, 230, .11)); }
-.attribute-value-overlay { position: absolute; left: var(--attribute-x); top: var(--attribute-y); z-index: 1; display: grid; place-content: center; justify-items: center; gap: 2px; width: 66px; height: 58px; transform: translate(-50%, -50%); border: 1px solid rgba(241, 237, 230, .72); border-radius: 50%; background: rgba(8, 8, 10, .92); color: #fff; box-shadow: 0 4px 16px #000b, 0 0 16px rgba(255, 255, 255, .16); text-align: center; }
-.attribute-value-overlay > span { color: #e5b2aa; font: 700 8px/1 var(--mono); letter-spacing: .12em; }
-.attribute-value-overlay > strong { color: #fff; font: 700 clamp(19px, 2.2vw, 25px)/1 var(--display); }
+.attribute-value-overlay { position: absolute; left: var(--attribute-x); top: var(--attribute-y); z-index: 1; display: grid; place-items: center; min-width: 30px; min-height: 36px; transform: translate(-50%, -50%); color: #fff; font: 700 clamp(24px, 2.8vw, 32px)/1 var(--display); -webkit-text-stroke: .8px rgba(0, 0, 0, .9); text-shadow: 0 1px 3px #000, 0 0 8px rgba(0, 0, 0, .92), 0 0 15px rgba(255, 255, 255, .24); white-space: nowrap; }
 .sheet-attributes-accessible { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .sheet-profile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(20px, 2.5vw, 32px); min-width: 0; padding: clamp(18px, 2.5vw, 30px) clamp(14px, 2vw, 24px); }
 .sheet-identity { display: flex; align-items: center; justify-content: center; gap: clamp(20px, 3vw, 38px); width: 100%; min-width: 0; }

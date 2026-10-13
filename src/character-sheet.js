@@ -1,9 +1,9 @@
 const ATTRIBUTES = [
-  { name: 'Agilidade', short: 'AGI', x: 50, y: 18 },
-  { name: 'Força', short: 'FOR', x: 23, y: 42 },
-  { name: 'Intelecto', short: 'INT', x: 77, y: 42 },
-  { name: 'Presença', short: 'PRE', x: 35, y: 75 },
-  { name: 'Vigor', short: 'VIG', x: 65, y: 75 },
+  { name: 'Agilidade', x: 50, y: 18 },
+  { name: 'Força', x: 23, y: 42 },
+  { name: 'Intelecto', x: 77, y: 42 },
+  { name: 'Presença', x: 35, y: 75 },
+  { name: 'Vigor', x: 65, y: 75 },
 ];
 
 const TABS = [
@@ -78,7 +78,7 @@ function attributeMap(character) {
       <img class="attribute-reference-art" src="./assets/atributos.png" alt="" aria-hidden="true">
       ${ATTRIBUTES.map(attribute => {
         const value = values[attribute.name] || '—';
-        return `<span class="attribute-value-overlay" style="--attribute-x:${attribute.x}%;--attribute-y:${attribute.y}%" aria-hidden="true"><span>${attribute.short}</span><strong>${esc(value)}</strong></span>`;
+        return `<span class="attribute-value-overlay" style="--attribute-x:${attribute.x}%;--attribute-y:${attribute.y}%" aria-hidden="true">${esc(value)}</span>`;
       }).join('')}
     </div>
     <ul class="sheet-attributes-accessible" aria-label="Valores dos atributos">
