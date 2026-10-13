@@ -146,16 +146,7 @@ export function renderCharacterSheet(character, _linkedCampaigns = [], activeTab
     ['NEX', character.nex || '—'],
   ];
 
-  return `<section class="page character-sheet-page">
-    <div class="sheet-toolbar">
-      <a class="sheet-back-link" href="#/personagens"><span aria-hidden="true">←</span> TODAS AS FICHAS</a>
-      <div class="sheet-toolbar-actions">
-        <button class="button button-sm" data-action="edit-character" data-id="${esc(character.id)}">Editar ficha</button>
-        <button class="button button-sm button-danger" data-action="delete-character" data-id="${esc(character.id)}">Excluir</button>
-      </div>
-    </div>
-
-    <div class="character-sheet-overview">
+  const overview = `<div class="character-sheet-overview">
       ${attributeMap(character)}
       <section class="sheet-profile" aria-label="Identificação e recursos do personagem">
         <div class="sheet-identity">
@@ -171,6 +162,16 @@ export function renderCharacterSheet(character, _linkedCampaigns = [], activeTab
           ${resourceBar(character, 'pe', 'ESFORÇO', 'PE', 'energy')}
         </div>
       </section>
+    </div>`;
+  const selectedContent = selectedTab === 'geral' ? overview : tabContent(character, selectedTab);
+
+  return `<section class="page character-sheet-page">
+    <div class="sheet-toolbar">
+      <a class="sheet-back-link" href="#/personagens"><span aria-hidden="true">←</span> TODAS AS FICHAS</a>
+      <div class="sheet-toolbar-actions">
+        <button class="button button-sm" data-action="edit-character" data-id="${esc(character.id)}">Editar ficha</button>
+        <button class="button button-sm button-danger" data-action="delete-character" data-id="${esc(character.id)}">Excluir</button>
+      </div>
     </div>
 
     <nav class="character-sheet-tabs" aria-label="Seções da ficha">
@@ -178,6 +179,6 @@ export function renderCharacterSheet(character, _linkedCampaigns = [], activeTab
         <span aria-hidden="true">${tab.icon}</span>${tab.label}
       </a>`).join('')}
     </nav>
-    <div class="character-sheet-tab-content" id="character-sheet-content">${tabContent(character, selectedTab)}</div>
+    <div class="character-sheet-tab-content" id="character-sheet-content">${selectedContent}</div>
   </section>`;
 }
