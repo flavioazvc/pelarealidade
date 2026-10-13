@@ -1,6 +1,7 @@
 import { loadState, getState, getStorageError, commit as commitLocal, uid, subscribe, importArchive, exportArchive, getLegacyState, setStorageScope, replaceState, clearMemory } from './store.js?v=4';
 import { mountBoard } from './board.js?v=3';
-import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=10';
+import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=11';
+import { INVENTORY_CATEGORIES, readCharacterAbilities, serializeCharacterAbilities, readCharacterInventory, serializeCharacterInventory, readCharacterDescription, serializeCharacterDescription } from './character-data.js?v=1';
 import { getClient, readProfile, signInWithNickname, requestAdminOperation, listProfiles, signOut } from './auth.js?v=1';
 import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=1';
 
@@ -393,13 +394,14 @@ function boardPreviewMarkup(board) {
 
 function safeBoardColor(value) { return /^#[0-9a-f]{6}$/i.test(String(value||''))?value:'#39343b'; }
 
-function openModal(title,intro,formContent,submitLabel='Salvar') {
-  modalBody.innerHTML=`<h2 id="modal-title" class="modal-title">${title}</h2><p class="modal-intro">${intro}</p><form id="entity-form">${formContent}<div class="form-actions"><button class="button" type="button" data-action="close-modal">Cancelar</button><button class="button button-primary" type="submit">${submitLabel}</button></div></form>`;
+function openModal(title,intro,formContent,submitLabel='Salvar',formId='entity-form') {
+  modalBody.innerHTML=`<h2 id="modal-title" class="modal-title">${title}</h2><p class="modal-intro">${intro}</p><form id="${esc(formId)}">${formContent}<div class="form-actions"><button class="button" type="button" data-action="close-modal">Cancelar</button><button class="button button-primary" type="submit">${submitLabel}</button></div></form>`;
   if (!modal.open) modal.showModal();
-  modalBody.querySelector('input,textarea,select')?.focus({preventScroll:true});
+  modalBody.querySelector('input:not([type="hidden"]),textarea,select')?.focus({preventScroll:true});
 }
 function valueField(name,label,value='',type='text',extra='') { return `<div class="field"><label for="f-${name}">${label}</label><input id="f-${name}" name="${name}" type="${type}" value="${esc(value)}" ${extra}></div>`; }
 function textareaField(name,label,value='',hint='') { return `<div class="field full"><label for="f-${name}">${label}</label><textarea id="f-${name}" name="${name}" ${hint?`aria-describedby="hint-${name}"`:''}>${esc(value)}</textarea>${hint?`<small id="hint-${name}">${hint}</small>`:''}</div>`; }
+function sheetTextareaField(name,label,value='',maxLength=10000) { return `<div class="field full"><label for="f-${name}">${label}</label><textarea id="f-${name}" name="${name}" maxlength="${maxLength}">${esc(value)}</textarea></div>`; }
 function campaignForm(c={}) { openModal(c.id?'Editar campanha':'Nova campanha','O quadro geral desta campanha começa vazio.',`<input type="hidden" name="id" value="${esc(c.id||'')}"><div class="form-grid">${valueField('name','Nome da campanha',c.name||'','text','required maxlength="120"')}${valueField('cover','URL da imagem de capa (opcional)',c.cover||'','url','placeholder="https://…"')}${textareaField('description','Descrição',c.description||'')}</div>`); }
 function characterForm(ch={},preselected='') {
   const data=getState(); const attrs=ch.attributes||{}; const selectedCampaigns=ch.campaignIds|| (preselected?[preselected]:[]);
@@ -423,12 +425,8 @@ function characterForm(ch={},preselected='') {
     resourceFields,
     valueField('defense','Defesa',ch.defense||'','text'),
     attr,
-    textareaField('abilities','Habilidades e poderes',ch.abilities||''),
-    textareaField('inventory','Inventário e equipamentos',ch.inventory||''),
     textareaField('rituals','Rituais',ch.rituals||''),
-    textareaField('description','Descrição do personagem',ch.description||''),
     textareaField('progress','Progressão / outros campos',ch.progress||''),
-    textareaField('notes','Notas da mesa',ch.notes||''),
     campaigns,
   ].join('');
   openModal(
@@ -436,6 +434,49 @@ function characterForm(ch={},preselected='') {
     'Preencha os dados do personagem. Os limites de PV, SAN e PE são definidos pela mesa.',
     `<input type="hidden" name="id" value="${esc(ch.id||'')}"><input type="hidden" name="skills" value="${esc(ch.skills||'')}"><div class="form-grid">${fields}</div>`
   );
+}
+
+function abilityForm(character,item=null,itemId='') {
+  const id=itemId||item?.id||'';
+  openModal(id?'Editar habilidade':'Nova habilidade','Cadastre o nome e a descrição. Termos de regra e perícias recebem destaque automático na ficha.',
+    `<input type="hidden" name="characterId" value="${esc(character.id)}"><input type="hidden" name="itemId" value="${esc(id)}"><div class="form-grid">${valueField('name','Nome da habilidade',item?.name||'','text','required maxlength="120"')}${sheetTextareaField('description','Descrição',item?.description||'',id==='__legacy__'?20000:8000)}</div>`,
+    'Salvar habilidade','ability-form');
+}
+
+function inventoryItemForm(character,item=null,itemId='') {
+  const id=itemId||item?.id||'';
+  const selected=String(item?.category||'0');
+  const options=INVENTORY_CATEGORIES.map(category=>`<option value="${esc(category)}" ${selected===category?'selected':''}>${category==='0'?'0 — comum':category}</option>`).join('');
+  openModal(id?'Editar item':'Novo item','Informe a categoria, os espaços ocupados e uma descrição para este item.',
+    `<input type="hidden" name="characterId" value="${esc(character.id)}"><input type="hidden" name="itemId" value="${esc(id)}"><div class="form-grid">${valueField('name','Nome do item',item?.name||'','text','required maxlength="120"')}<div class="field"><label for="f-category">Categoria</label><select id="f-category" name="category" required>${options}</select></div>${valueField('spaces','Espaços ocupados',item?.spaces??0,'number','required min="0" step="1"')}${sheetTextareaField('description','Descrição',item?.description||'',id==='__legacy__'?20000:5000)}</div>`,
+    'Salvar item','inventory-item-form');
+}
+
+function characterDescriptionForm(character) {
+  const description=readCharacterDescription(character);
+  openModal('Editar descrição','Organize a apresentação do personagem em três partes.',
+    `<input type="hidden" name="characterId" value="${esc(character.id)}"><div class="form-grid">${sheetTextareaField('appearance','Aparência',description.appearance,20000)}${sheetTextareaField('personality','Personalidade',description.personality,20000)}${sheetTextareaField('history','História',description.history,20000)}</div>`,
+    'Salvar descrição','character-description-form');
+}
+
+function saveCharacterFields(characterId, fields, message, closeModal=false) {
+  const ok=commitAndSync(d=>{
+    const character=d.characters.find(item=>item.id===characterId);
+    if(!character)throw new Error('Ficha não encontrada.');
+    Object.assign(character,fields,{updatedAt:new Date().toISOString()});
+  });
+  if(ok){if(closeModal&&modal.open)modal.close();toast(message);render();}
+  else toast('Não foi possível salvar. Verifique o armazenamento local e tente novamente.','error');
+  return ok;
+}
+
+function saveStructuredCharacterField(characterId, field, serializer, data, message, closeModal=false) {
+  try {
+    return saveCharacterFields(characterId,{[field]:serializer(data)},message,closeModal);
+  } catch(error) {
+    toast(error.message||'O conteúdo é grande demais para ser salvo com segurança.','error');
+    return false;
+  }
 }
 
 function sessionForm(s={},preselected='') {
@@ -476,6 +517,63 @@ document.addEventListener('click',event=>{
     if(typeof skills!=='string')return;
     const ok=commitAndSync(d=>{const target=d.characters.find(item=>item.id===id);if(target){target.skills=skills;target.updatedAt=new Date().toISOString();}});
     if(ok)render();else toast('Não foi possível salvar o bônus da perícia.','error');
+    return;
+  }
+  if(action==='add-ability'){
+    const character=data.characters.find(item=>item.id===id);
+    if(character&&mayManageCharacter(character))abilityForm(character);
+    return;
+  }
+  if(action==='edit-ability'){
+    const character=data.characters.find(item=>item.id===id);
+    if(!character||!mayManageCharacter(character))return;
+    const itemId=button.dataset.item,stored=readCharacterAbilities(character);
+    const item=itemId==='__legacy__'
+      ? {id:itemId,name:'Habilidades anteriores',description:stored.legacy}
+      : stored.items.find(entry=>entry.id===itemId);
+    if(item)abilityForm(character,item,itemId);
+    return;
+  }
+  if(action==='delete-ability'){
+    const character=data.characters.find(item=>item.id===id);
+    if(!character||!mayManageCharacter(character))return;
+    const itemId=button.dataset.item,stored=readCharacterAbilities(character);
+    const item=stored.items.find(entry=>entry.id===itemId);
+    const label=item?.name||(itemId==='__legacy__'?'o texto de habilidades anterior':'esta habilidade');
+    if(!confirm(`Excluir “${label}”? Esta ação não pode ser desfeita.`))return;
+    const next=itemId==='__legacy__'?{...stored,legacy:''}:{...stored,items:stored.items.filter(entry=>entry.id!==itemId)};
+    saveStructuredCharacterField(id,'abilities',serializeCharacterAbilities,next,'Habilidade excluída.');
+    return;
+  }
+  if(action==='add-inventory-item'){
+    const character=data.characters.find(item=>item.id===id);
+    if(character&&mayManageCharacter(character))inventoryItemForm(character);
+    return;
+  }
+  if(action==='edit-inventory-item'){
+    const character=data.characters.find(item=>item.id===id);
+    if(!character||!mayManageCharacter(character))return;
+    const itemId=button.dataset.item,stored=readCharacterInventory(character);
+    const item=itemId==='__legacy__'
+      ? {id:itemId,name:'Itens anteriores',category:'0',spaces:0,description:stored.legacy}
+      : stored.items.find(entry=>entry.id===itemId);
+    if(item)inventoryItemForm(character,item,itemId);
+    return;
+  }
+  if(action==='delete-inventory-item'){
+    const character=data.characters.find(item=>item.id===id);
+    if(!character||!mayManageCharacter(character))return;
+    const itemId=button.dataset.item,stored=readCharacterInventory(character);
+    const item=stored.items.find(entry=>entry.id===itemId);
+    const label=item?.name||(itemId==='__legacy__'?'o texto de inventário anterior':'este item');
+    if(!confirm(`Excluir “${label}”? Esta ação não pode ser desfeita.`))return;
+    const next=itemId==='__legacy__'?{...stored,legacy:''}:{...stored,items:stored.items.filter(entry=>entry.id!==itemId)};
+    saveStructuredCharacterField(id,'inventory',serializeCharacterInventory,next,'Item excluído.');
+    return;
+  }
+  if(action==='edit-character-description'){
+    const character=data.characters.find(item=>item.id===id);
+    if(character&&mayManageCharacter(character))characterDescriptionForm(character);
     return;
   }
   if(action==='logout'){void logoutUser();return;}
@@ -529,15 +627,71 @@ document.addEventListener('submit',async event=>{
 });
 
 document.addEventListener('submit',event=>{
-  if(event.target.getAttribute('id')!=='entity-form')return;
-  event.preventDefault();const form=event.target; if(!form.reportValidity())return;
+  const form=event.target;
+  if(['ability-form','inventory-item-form','character-description-form','inventory-limits-form'].includes(form.id)){
+    event.preventDefault();if(!form.reportValidity())return;
+    const fd=new FormData(form);
+    const characterId=String(fd.get('characterId')||form.dataset.id||'');
+    const character=getState().characters.find(item=>item.id===characterId);
+    if(!character||!mayManageCharacter(character)){toast('Você não tem permissão para editar esta ficha.','warning');return;}
+
+    if(form.id==='ability-form'){
+      const itemId=String(fd.get('itemId')||''),name=String(fd.get('name')||'').trim(),description=String(fd.get('description')||'');
+      const stored=readCharacterAbilities(character);let items=[...stored.items],legacy=stored.legacy;
+      const record={id:itemId&&itemId!=='__legacy__'?itemId:uid(),name,description};
+      if(itemId==='__legacy__'){legacy='';items.push(record);}
+      else if(itemId){const index=items.findIndex(item=>item.id===itemId);if(index<0){toast('A habilidade não foi encontrada.','error');return;}items[index]=record;}
+      else items.push(record);
+      saveStructuredCharacterField(characterId,'abilities',serializeCharacterAbilities,{items,legacy},'Habilidade salva.',true);
+      return;
+    }
+
+    if(form.id==='inventory-item-form'){
+      const itemId=String(fd.get('itemId')||''),name=String(fd.get('name')||'').trim(),category=String(fd.get('category')||'');
+      const spaces=Number(fd.get('spaces')),description=String(fd.get('description')||'');
+      if(!INVENTORY_CATEGORIES.includes(category)||!Number.isInteger(spaces)||spaces<0){toast('Confira a categoria e a quantidade de espaços.','error');return;}
+      const stored=readCharacterInventory(character);let items=[...stored.items],legacy=stored.legacy;
+      const record={id:itemId&&itemId!=='__legacy__'?itemId:uid(),name,category,spaces,description};
+      if(itemId==='__legacy__'){legacy='';items.push(record);}
+      else if(itemId){const index=items.findIndex(item=>item.id===itemId);if(index<0){toast('O item não foi encontrado.','error');return;}items[index]=record;}
+      else items.push(record);
+      saveStructuredCharacterField(characterId,'inventory',serializeCharacterInventory,{...stored,items,legacy},'Item salvo.',true);
+      return;
+    }
+
+    if(form.id==='character-description-form'){
+      const description={
+        appearance:String(fd.get('appearance')||''),
+        personality:String(fd.get('personality')||''),
+        history:String(fd.get('history')||''),
+      };
+      saveStructuredCharacterField(characterId,'description',serializeCharacterDescription,description,'Descrição salva.',true);
+      return;
+    }
+
+    if(form.id==='inventory-limits-form'){
+      const stored=readCharacterInventory(character);
+      const limits={};
+      for(const category of INVENTORY_CATEGORIES){
+        const raw=String(fd.get(`limit_${category}`)||'').trim();
+        if(raw===''){limits[category]=null;continue;}
+        const value=Number(raw);
+        if(!Number.isInteger(value)||value<0){toast(`O limite da categoria ${category} precisa ser um número inteiro não negativo.`,'error');return;}
+        limits[category]=value;
+      }
+      saveStructuredCharacterField(characterId,'inventory',serializeCharacterInventory,{...stored,limits},'Limites do inventário salvos.');
+      return;
+    }
+  }
+  if(form.getAttribute('id')!=='entity-form')return;
+  event.preventDefault();if(!form.reportValidity())return;
   const fd=new FormData(form);const id=String(fd.get('id')||'');const now=new Date().toISOString();let ok=false;let success='Alterações salvas.';
   if(form.querySelector('[name="cover"]') && form.querySelector('[name="description"]') && !form.querySelector('[name="campaignId"]')) {
     const name=String(fd.get('name')||'').trim();const cover=String(fd.get('cover')||'').trim();if(cover&&!validImageUrl(cover)){toast('A capa deve usar uma URL HTTP ou HTTPS válida.','error');return;}
     ok=commitAndSync(d=>{const old=d.campaigns.find(x=>x.id===id);const record={id:id||uid(),name,description:String(fd.get('description')||'').trim(),cover,createdAt:old?.createdAt||now,updatedAt:now,createdBy:old?.createdBy||currentUser.id,membershipRole:old?.membershipRole||''};const index=d.campaigns.findIndex(x=>x.id===id);if(index>=0)d.campaigns[index]=record;else{d.campaigns.push(record);d.boards[record.id]={campaignId:record.id,cards:[],paths:[],links:[],updatedAt:now};}});success=id?'Campanha atualizada.':'Campanha criada. O quadro está vazio.';
   } else if(form.querySelector('[name="attr_0"]')) {
     const old=getState().characters.find(x=>x.id===id);const portrait=String(fd.get('portrait')||'').trim();if(portrait&&!validImageUrl(portrait)){toast('A imagem deve usar uma URL HTTP ou HTTPS válida.','error');return;}const attributes={};['Agilidade','Força','Intelecto','Presença','Vigor'].forEach((name,i)=>attributes[name]=String(fd.get(`attr_${i}`)||'').trim());const campaignIds=fd.getAll('campaignIds').map(String);
-    const record={id:id||uid(),name:String(fd.get('name')||'').trim(),playerNote:String(fd.get('playerNote')||'').trim(),playerName:String(fd.get('playerName')||'').trim(),portrait,origin:String(fd.get('origin')||'').trim(),className:String(fd.get('className')||'').trim(),path:String(fd.get('path')||'').trim(),nex:String(fd.get('nex')||'').trim(),rank:String(fd.get('rank')||'').trim(),pv:String(fd.get('pv')||'').trim(),pvMax:String(fd.get('pvMax')||'').trim(),pe:String(fd.get('pe')||'').trim(),peMax:String(fd.get('peMax')||'').trim(),san:String(fd.get('san')||'').trim(),sanMax:String(fd.get('sanMax')||'').trim(),defense:String(fd.get('defense')||'').trim(),attributes,skills:String(fd.get('skills')||'').trim(),abilities:String(fd.get('abilities')||'').trim(),inventory:String(fd.get('inventory')||'').trim(),rituals:String(fd.get('rituals')||'').trim(),description:String(fd.get('description')||'').trim(),progress:String(fd.get('progress')||'').trim(),notes:String(fd.get('notes')||'').trim(),campaignIds,createdAt:old?.createdAt||now,updatedAt:now,ownerId:old?.ownerId||currentUser.id,createdBy:old?.createdBy||currentUser.id};
+    const record={id:id||uid(),name:String(fd.get('name')||'').trim(),playerNote:String(fd.get('playerNote')||'').trim(),playerName:String(fd.get('playerName')||'').trim(),portrait,origin:String(fd.get('origin')||'').trim(),className:String(fd.get('className')||'').trim(),path:String(fd.get('path')||'').trim(),nex:String(fd.get('nex')||'').trim(),rank:String(fd.get('rank')||'').trim(),pv:String(fd.get('pv')||'').trim(),pvMax:String(fd.get('pvMax')||'').trim(),pe:String(fd.get('pe')||'').trim(),peMax:String(fd.get('peMax')||'').trim(),san:String(fd.get('san')||'').trim(),sanMax:String(fd.get('sanMax')||'').trim(),defense:String(fd.get('defense')||'').trim(),attributes,skills:String(fd.get('skills')||'').trim(),abilities:old?.abilities??'',inventory:old?.inventory??'',rituals:String(fd.get('rituals')||'').trim(),description:old?.description??'',progress:String(fd.get('progress')||'').trim(),notes:old?.notes??'',campaignIds,createdAt:old?.createdAt||now,updatedAt:now,ownerId:old?.ownerId||currentUser.id,createdBy:old?.createdBy||currentUser.id};
     ok=commitAndSync(d=>{const index=d.characters.findIndex(x=>x.id===id);if(index>=0)d.characters[index]=record;else d.characters.push(record);});success=id?'Ficha atualizada.':'Ficha criada.';
   } else if(form.querySelector('[name="campaignId"]')) {
     const old=getState().sessions.find(x=>x.id===id);const record={id:id||uid(),campaignId:String(fd.get('campaignId')),title:String(fd.get('title')||'').trim(),date:String(fd.get('date')||''),description:String(fd.get('description')||'').trim(),status:String(fd.get('status')||'Planejada'),notes:String(fd.get('notes')||'').trim(),createdAt:old?.createdAt||now,updatedAt:now,createdBy:old?.createdBy||currentUser.id};
