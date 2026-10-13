@@ -22,6 +22,8 @@ Flávio pode ler e administrar os dados globais; mestres gerenciam suas campanha
 
 Uma sessão pode ser iniciada/encerrada por administrador ou mestre na área **Sessões**. Há no máximo uma sessão ativa por campanha. Jogadores veem apenas uma tela preta de espera até sua campanha ter sessão ativa; então a aplicação mostra somente as fichas vinculadas ao próprio usuário nessa campanha, em modo somente leitura. O estado é verificado novamente a cada 10 segundos para refletir início e encerramento sem exigir recarga. O RLS limita a leitura de campanhas e sessões ao contexto ativo, bloqueia quadros e impede a leitura de fichas de outros jogadores.
 
+A migração `20261013130000_live_player_session.sql` foi aplicada pelo SQL Editor do projeto Supabase conectado em 13/10/2026 e verificada por consulta de schema/políticas. O arquivo versionado é aditivo e idempotente; execute-o também em qualquer ambiente Supabase separado antes de implantar o frontend correspondente.
+
 ## Rituais da ficha
 
 Rituais são armazenados em formato estruturado, preservando texto legado existente. Elemento, círculo, execução e alcance usam as opções definidas na interface; alvo, duração e resistência são textos personalizados. Efeito base e versões Discente/Verdadeiro são opcionais/personalizáveis. A imagem é registrada como URL HTTP(S); upload de arquivo para Storage ainda não faz parte deste fluxo.

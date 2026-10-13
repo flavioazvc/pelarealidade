@@ -519,7 +519,7 @@ A aplicação estática fica em `index.html`, `styles.css` e `src/` e não exige
 
 ### Persistência, acesso e privacidade
 
-O Supabase é a fonte compartilhada dos registros; `localStorage` é usado como cache local. As tabelas são protegidas por RLS. A migração `supabase/migrations/20261013130000_live_player_session.sql` adiciona o estado de sessão ativa e restringe consultas de jogadores ao período de sessão e às próprias fichas; aplique-a ao projeto Supabase antes de liberar esse fluxo ao vivo. A migração não apaga registros do jogo, mas substitui políticas de acesso para aplicar os limites descritos. Veja `docs/DECISOES-TECNICAS.md` para o desenho técnico.
+O Supabase é a fonte compartilhada dos registros; `localStorage` é usado como cache local. As tabelas são protegidas por RLS. A migração `supabase/migrations/20261013130000_live_player_session.sql` foi aplicada e verificada no projeto Supabase do deploy em 13/10/2026; ela adiciona o estado de sessão ativa e restringe jogadores ao período de sessão e às próprias fichas. Para outros ambientes, execute a migração antes de liberar esse fluxo. Ela não apaga registros do jogo, mas substitui políticas de acesso para aplicar os limites descritos. Veja `docs/DECISOES-TECNICAS.md` para o desenho técnico.
 
 ### Regras da ficha
 
