@@ -1,7 +1,7 @@
 import { loadState, getState, getStorageError, commit as commitLocal, uid, subscribe, importArchive, exportArchive, getLegacyState, setStorageScope, replaceState, clearMemory } from './store.js?v=5';
 import { mountBoard } from './board.js?v=3';
-import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=14';
-import { INVENTORY_CATEGORIES, RITUAL_ELEMENTS, RITUAL_CIRCLES, RITUAL_EXECUTIONS, RITUAL_RANGES, readCharacterAbilities, serializeCharacterAbilities, readCharacterInventory, serializeCharacterInventory, readCharacterDescription, serializeCharacterDescription, readCharacterRituals, serializeCharacterRituals } from './character-data.js?v=2';
+import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=15';
+import { INVENTORY_CATEGORIES, RITUAL_ELEMENTS, RITUAL_CIRCLES, RITUAL_EXECUTIONS, RITUAL_RANGES, readCharacterAbilities, serializeCharacterAbilities, readCharacterInventory, serializeCharacterInventory, readCharacterDescription, serializeCharacterDescription, readCharacterRituals, serializeCharacterRituals } from './character-data.js?v=3';
 import { getClient, readProfile, signInWithNickname, requestAdminOperation, listProfiles, signOut } from './auth.js?v=1';
 import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=2';
 
@@ -563,7 +563,7 @@ function inventoryItemForm(character,item=null,itemId='') {
   const options=INVENTORY_CATEGORIES.map(category=>`<option value="${esc(category)}" ${selected===category?'selected':''}>${category==='0'?'0 — comum':category}</option>`).join('');
   const deleteButton=id?`<div class="inventory-form-delete-row"><button class="button button-sm button-danger" type="button" data-action="delete-inventory-item" data-id="${esc(character.id)}" data-item="${esc(id)}">Excluir item</button></div>`:'';
   openModal(id?'Editar item':'Novo item','Informe a categoria, os espaços ocupados e uma descrição para este item.',
-    `<input type="hidden" name="characterId" value="${esc(character.id)}"><input type="hidden" name="itemId" value="${esc(id)}"><div class="form-grid">${valueField('name','Nome do item',item?.name||'','text','required maxlength="120"')}<div class="field"><label for="f-category">Categoria</label><select id="f-category" name="category" required>${options}</select></div>${valueField('spaces','Espaços ocupados',item?.spaces??0,'number','required min="0" step="1"')}${sheetTextareaField('description','Descrição',item?.description||'',id==='__legacy__'?20000:5000)}</div>${deleteButton}`,
+    `<input type="hidden" name="characterId" value="${esc(character.id)}"><input type="hidden" name="itemId" value="${esc(id)}"><div class="form-grid">${valueField('name','Nome do item',item?.name||'','text','required maxlength="120"')}<div class="field"><label for="f-category">Categoria</label><select id="f-category" name="category" required>${options}</select></div>${valueField('spaces','Espaços (aceita negativos e decimais)',item?.spaces??0,'number','required step="any"')}${sheetTextareaField('description','Descrição',item?.description||'',id==='__legacy__'?20000:5000)}</div>${deleteButton}`,
     'Salvar item','inventory-item-form');
 }
 
@@ -838,8 +838,9 @@ document.addEventListener('submit',event=>{
 
     if(form.id==='inventory-item-form'){
       const itemId=String(fd.get('itemId')||''),name=String(fd.get('name')||'').trim(),category=String(fd.get('category')||'');
-      const spaces=Number(fd.get('spaces')),description=String(fd.get('description')||'');
-      if(!INVENTORY_CATEGORIES.includes(category)||!Number.isInteger(spaces)||spaces<0){toast('Confira a categoria e a quantidade de espaços.','error');return;}
+      const rawSpaces=String(fd.get('spaces')??'').trim().replace(',','.');
+      const spaces=rawSpaces===''?NaN:Number(rawSpaces),description=String(fd.get('description')||'');
+      if(!INVENTORY_CATEGORIES.includes(category)||!Number.isFinite(spaces)){toast('Confira a categoria e informe um número válido de espaços.','error');return;}
       const stored=readCharacterInventory(character);let items=[...stored.items],legacy=stored.legacy;
       const record={id:itemId&&itemId!=='__legacy__'?itemId:uid(),name,category,spaces,description};
       if(itemId==='__legacy__'){legacy='';items.push(record);}

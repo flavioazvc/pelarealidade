@@ -1,4 +1,4 @@
-import { INVENTORY_CATEGORIES, readCharacterAbilities, readCharacterInventory, readCharacterDescription, readCharacterRituals } from './character-data.js?v=2';
+import { INVENTORY_CATEGORIES, readCharacterAbilities, readCharacterInventory, readCharacterDescription, readCharacterRituals } from './character-data.js?v=3';
 
 const ATTRIBUTES = [
   // Posições percentuais especificadas para os números sobre a arte 720×720.
@@ -209,9 +209,10 @@ function abilitiesTab(character, canEdit) {
 
 function inventoryItemCard(character, item, canEdit, legacy = false) {
   const itemId = legacy ? '__legacy__' : item.id;
+  const itemSpaces = formatInventorySpaces(item.spaces);
   const badges = legacy
     ? '<span class="inventory-item-tag inventory-item-tag--legacy">Dados anteriores</span>'
-    : `<span class="inventory-item-tag">Categoria ${esc(item.category)}</span><span class="inventory-item-tag">${item.spaces} ${item.spaces === 1 ? 'espaço' : 'espaços'}</span>`;
+    : `<span class="inventory-item-tag">Categoria ${esc(item.category)}</span><span class="inventory-item-tag">${itemSpaces} ${item.spaces === 1 ? 'espaço' : 'espaços'}</span>`;
   const editButton = canEdit ? `<div class="inventory-item-actions">
       <button class="button button-sm" type="button" data-action="edit-inventory-item" data-id="${esc(character.id)}" data-item="${esc(itemId)}">Editar</button>
     </div>` : '';
@@ -220,6 +221,13 @@ function inventoryItemCard(character, item, canEdit, legacy = false) {
     <summary class="inventory-item-summary"><span class="inventory-item-name">${esc(item.name || 'Item sem nome')}</span><span class="inventory-item-tags">${badges}</span><span class="ability-expand-hint">Detalhes</span></summary>
     <div class="inventory-item-body"><div class="rule-text">${description ? highlightRuleText(description, character) : '<span class="sheet-empty-copy">Sem descrição cadastrada.</span>'}</div>${editButton}</div>
   </details>`;
+}
+
+function formatInventorySpaces(value) {
+  const number = Number(value);
+  return Number.isFinite(number)
+    ? new Intl.NumberFormat('pt-BR', { useGrouping: false, maximumFractionDigits: 15 }).format(number)
+    : '0';
 }
 
 function categoryCounter(category, count, limit, canEdit) {
@@ -238,11 +246,12 @@ function inventoryTab(character, canEdit) {
   const data = readCharacterInventory(character);
   const counts = Object.fromEntries(INVENTORY_CATEGORIES.map(category => [category, data.items.filter(item => item.category === category).length]));
   const usedSpaces = data.items.reduce((sum, item) => sum + item.spaces, 0);
+  const formattedUsedSpaces = formatInventorySpaces(usedSpaces);
   const rawStrength = String(character.attributes?.Força ?? '').trim().replace(',', '.');
   const strength = rawStrength === '' ? NaN : Number(rawStrength);
   const spaceLimit = Number.isFinite(strength) && strength >= 0 ? strength * 5 : null;
   const spacesOver = spaceLimit !== null && usedSpaces > spaceLimit;
-  const formattedLimit = spaceLimit === null ? '—' : Number.isInteger(spaceLimit) ? String(spaceLimit) : spaceLimit.toFixed(1);
+  const formattedLimit = spaceLimit === null ? '—' : formatInventorySpaces(spaceLimit);
   const entries = data.items.map(item => inventoryItemCard(character, item, canEdit));
   if (data.legacy.trim()) entries.unshift(inventoryItemCard(character, { id: '__legacy__', name: 'Inventário anterior', description: data.legacy }, canEdit, true));
 
@@ -256,7 +265,7 @@ function inventoryTab(character, canEdit) {
           <span class="inventory-category-limit">limite <input type="number" name="limit_0" min="0" step="1" value="${data.limits['0'] === null ? '' : data.limits['0']}" placeholder="∞" aria-label="Limite de itens da categoria 0" ${canEdit ? '' : 'disabled'}></span>
         </label>
         <div class="inventory-space-meter${spacesOver ? ' is-over-limit' : ''}" aria-live="polite">
-          <span>ESPAÇOS UTILIZADOS</span><strong>${usedSpaces} / ${formattedLimit}</strong><small>${spaceLimit === null ? 'Defina FOR na aba Geral para calcular o limite.' : 'Limite: Força × 5'}</small>
+          <span>ESPAÇOS UTILIZADOS</span><strong>${formattedUsedSpaces} / ${formattedLimit}</strong><small>${spaceLimit === null ? 'Defina FOR na aba Geral para calcular o limite.' : 'Limite: Força × 5'}</small>
         </div>
         ${canEdit ? '<button class="button button-sm" type="submit">Salvar limites</button>' : ''}
       </div>

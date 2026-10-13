@@ -70,7 +70,7 @@ function normalizeInventoryItems(items) {
         id: String(item.id || `inventory-${index + 1}`).slice(0, 128),
         name: String(item.name ?? '').slice(0, 120),
         category: INVENTORY_CATEGORIES.includes(category) ? category : '0',
-        spaces: Number.isFinite(spaces) && spaces >= 0 ? Math.round(spaces) : 0,
+        spaces: Number.isFinite(spaces) ? spaces : 0,
         description: String(item.description ?? '').slice(0, 20000),
       };
     });
