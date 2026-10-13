@@ -820,3 +820,13 @@ main { min-height: calc(100vh - 76px); }
   .ability-card-summary { padding: 12px 13px; }
   .ability-card-body { padding: 0 13px 11px; }
 }
+
+
+/* Inventário: ações compactas no card e exclusão dentro do editor */
+.inventory-item-body { gap: 6px; padding: 0 14px 11px; }
+.inventory-item-actions { display: flex; justify-content: flex-start; }
+.inventory-item-actions .button { min-height: 27px; padding: 4px 9px; font-size: 10px; }
+.inventory-form-delete-row { display: flex; justify-content: flex-start; margin-top: 12px; }
+@media (max-width: 520px) {
+  .inventory-item-body { padding: 0 13px 11px; }
+}

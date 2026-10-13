@@ -1,6 +1,6 @@
 import { loadState, getState, getStorageError, commit as commitLocal, uid, subscribe, importArchive, exportArchive, getLegacyState, setStorageScope, replaceState, clearMemory } from './store.js?v=4';
 import { mountBoard } from './board.js?v=3';
-import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=12';
+import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=13';
 import { INVENTORY_CATEGORIES, readCharacterAbilities, serializeCharacterAbilities, readCharacterInventory, serializeCharacterInventory, readCharacterDescription, serializeCharacterDescription } from './character-data.js?v=1';
 import { getClient, readProfile, signInWithNickname, requestAdminOperation, listProfiles, signOut } from './auth.js?v=1';
 import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=1';
@@ -21,6 +21,7 @@ let cloudReady = false;
 let cloudSnapshot = null;
 let syncQueue = Promise.resolve();
 let profileCache = [];
+let characterPlayerProfiles = [];
 loadState();
 let legacySnapshot = getLegacyState();
 
@@ -86,6 +87,7 @@ function clearSignedInState() {
   cloudReady = false;
   cloudSnapshot = null;
   profileCache = [];
+  characterPlayerProfiles = [];
   setStorageScope(null);
   clearMemory();
   renderLogin();
@@ -303,6 +305,19 @@ function initials(value) {
   return String(value||'PR').trim().split(/\s+/).slice(0,2).map(part=>part.charAt(0)).join('').toLocaleUpperCase('pt-BR')||'PR';
 }
 
+function playerProfileDisplayName(profile, peers=[]) {
+  const displayName=String(profile?.display_name||'').trim();
+  const username=String(profile?.username||'').trim();
+  const base=displayName&&displayName.toLocaleLowerCase('pt-BR')!==username.toLocaleLowerCase('pt-BR')?displayName:'Nome não cadastrado';
+  const duplicates=peers.filter(candidate=>{
+    const candidateName=String(candidate?.display_name||'').trim();
+    const candidateUsername=String(candidate?.username||'').trim();
+    const candidateBase=candidateName&&candidateName.toLocaleLowerCase('pt-BR')!==candidateUsername.toLocaleLowerCase('pt-BR')?candidateName:'Nome não cadastrado';
+    return candidateBase.toLocaleLowerCase('pt-BR')===base.toLocaleLowerCase('pt-BR');
+  }).length;
+  return duplicates>1?`${base} · conta ${String(profile?.user_id||'').slice(0,6)}`:base;
+}
+
 function renderCharacters(data) {
   const actions=`<button class="button button-primary" data-create="character">＋ Nova ficha</button>`;
   return `<section class="page"><div class="page-head"><div><h1>Personagens</h1></div><div class="page-head-actions">${actions}</div></div>
@@ -403,8 +418,24 @@ function valueField(name,label,value='',type='text',extra='') { return `<div cla
 function textareaField(name,label,value='',hint='') { return `<div class="field full"><label for="f-${name}">${label}</label><textarea id="f-${name}" name="${name}" ${hint?`aria-describedby="hint-${name}"`:''}>${esc(value)}</textarea>${hint?`<small id="hint-${name}">${hint}</small>`:''}</div>`; }
 function sheetTextareaField(name,label,value='',maxLength=10000) { return `<div class="field full"><label for="f-${name}">${label}</label><textarea id="f-${name}" name="${name}" maxlength="${maxLength}">${esc(value)}</textarea></div>`; }
 function campaignForm(c={}) { openModal(c.id?'Editar campanha':'Nova campanha','O quadro geral desta campanha começa vazio.',`<input type="hidden" name="id" value="${esc(c.id||'')}"><div class="form-grid">${valueField('name','Nome da campanha',c.name||'','text','required maxlength="120"')}${valueField('cover','URL da imagem de capa (opcional)',c.cover||'','url','placeholder="https://…"')}${textareaField('description','Descrição',c.description||'')}</div>`); }
-function characterForm(ch={},preselected='') {
+async function characterForm(ch={},preselected='') {
+  const isAdmin=currentProfile?.role==='admin';
+  let playerProfiles=[];
+  if(isAdmin){
+    const requestorId=currentUser?.id;
+    try{
+      const profiles=await listProfiles(currentClient);
+      if(currentUser?.id!==requestorId||currentProfile?.role!=='admin')return;
+      profileCache=profiles;
+      playerProfiles=profiles.filter(profile=>profile.role==='player');
+      characterPlayerProfiles=playerProfiles;
+    }catch(error){toast(`Não foi possível carregar os jogadores cadastrados: ${error.message}`,'error');return;}
+  }else characterPlayerProfiles=[];
   const data=getState(); const attrs=ch.attributes||{}; const selectedCampaigns=ch.campaignIds|| (preselected?[preselected]:[]);
+  const selectedOwnerId=playerProfiles.some(profile=>profile.user_id===ch.ownerId)?ch.ownerId:'';
+  const keepExistingOwner=Boolean(ch.id&&ch.ownerId&&ch.ownerId!==currentUser?.id&&!selectedOwnerId);
+  const existingOwnerProfile=profileCache.find(profile=>profile.user_id===ch.ownerId);
+  const ownerField=isAdmin?`<div class="field full"><label for="f-ownerId">Jogador(a) vinculado(a)</label><select id="f-ownerId" name="ownerId"><option value="" ${!selectedOwnerId&&!keepExistingOwner?'selected':''}>Sem jogador associado</option>${keepExistingOwner?`<option value="__keep__" selected>Manter vínculo atual${existingOwnerProfile?` · ${esc(playerProfileDisplayName(existingOwnerProfile,profileCache))}`:''}</option>`:''}${playerProfiles.length?playerProfiles.map(profile=>`<option value="${esc(profile.user_id)}" ${profile.user_id===selectedOwnerId?'selected':''}>${esc(playerProfileDisplayName(profile,playerProfiles))}</option>`).join(''):'<option value="" disabled>Nenhum jogador cadastrado</option>'}</select><small>Vincule a ficha a uma conta existente; a lista usa o nome exibido no perfil.</small></div>`:valueField('playerName','Jogador(a)',ch.playerName||'');
   const campaigns=`<fieldset class="field full" style="border:1px solid #363c3d;padding:12px"><legend>Campanhas associadas</legend><div class="chip-list">${data.campaigns.length?data.campaigns.map(c=>`<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" name="campaignIds" value="${esc(c.id)}" ${selectedCampaigns.includes(c.id)?'checked':''}>${esc(c.name)}</label>`).join(''):'<small>Crie uma campanha para associar esta ficha.</small>'}</div></fieldset>`;
   const attr=`<fieldset class="field full" style="border:1px solid #363c3d;padding:12px"><legend>Atributos · anotação manual</legend><div class="rule-fields">${['Agilidade','Força','Intelecto','Presença','Vigor'].map((name,i)=>`<div class="field"><label for="attr-${i}">${name}</label><input id="attr-${i}" name="attr_${i}" value="${esc(attrs[name]||'')}" inputmode="numeric" aria-label="${name}, valor manual"></div>`).join('')}</div></fieldset>`;
   const resources=[['pv','PV'],['san','SAN'],['pe','PE']].map(([key,label])=>{
@@ -414,7 +445,7 @@ function characterForm(ch={},preselected='') {
   const resourceFields=`<fieldset class="field full sheet-resource-fieldset"><legend>Pontos da ficha</legend><div class="sheet-resource-form-grid">${resources}</div><small>Informe o valor atual e o limite de PV, SAN e PE. A ficha não calcula esses números automaticamente.</small></fieldset>`;
   const fields=[
     valueField('name','Nome do personagem *',ch.name||'','text','required maxlength="100"'),
-    valueField('playerName','Jogador(a)',ch.playerName||''),
+    ownerField,
     valueField('portrait','Imagem do personagem/jogador (URL, opcional)',ch.portrait||'','url','placeholder="https://…"'),
     valueField('playerNote','Anotação de jogador (opcional)',ch.playerNote||''),
     valueField('origin','Origem',ch.origin||''),
@@ -448,8 +479,9 @@ function inventoryItemForm(character,item=null,itemId='') {
   const id=itemId||item?.id||'';
   const selected=String(item?.category||'0');
   const options=INVENTORY_CATEGORIES.map(category=>`<option value="${esc(category)}" ${selected===category?'selected':''}>${category==='0'?'0 — comum':category}</option>`).join('');
+  const deleteButton=id?`<div class="inventory-form-delete-row"><button class="button button-sm button-danger" type="button" data-action="delete-inventory-item" data-id="${esc(character.id)}" data-item="${esc(id)}">Excluir item</button></div>`:'';
   openModal(id?'Editar item':'Novo item','Informe a categoria, os espaços ocupados e uma descrição para este item.',
-    `<input type="hidden" name="characterId" value="${esc(character.id)}"><input type="hidden" name="itemId" value="${esc(id)}"><div class="form-grid">${valueField('name','Nome do item',item?.name||'','text','required maxlength="120"')}<div class="field"><label for="f-category">Categoria</label><select id="f-category" name="category" required>${options}</select></div>${valueField('spaces','Espaços ocupados',item?.spaces??0,'number','required min="0" step="1"')}${sheetTextareaField('description','Descrição',item?.description||'',id==='__legacy__'?20000:5000)}</div>`,
+    `<input type="hidden" name="characterId" value="${esc(character.id)}"><input type="hidden" name="itemId" value="${esc(id)}"><div class="form-grid">${valueField('name','Nome do item',item?.name||'','text','required maxlength="120"')}<div class="field"><label for="f-category">Categoria</label><select id="f-category" name="category" required>${options}</select></div>${valueField('spaces','Espaços ocupados',item?.spaces??0,'number','required min="0" step="1"')}${sheetTextareaField('description','Descrição',item?.description||'',id==='__legacy__'?20000:5000)}</div>${deleteButton}`,
     'Salvar item','inventory-item-form');
 }
 
@@ -569,7 +601,7 @@ document.addEventListener('click',event=>{
     const label=item?.name||(itemId==='__legacy__'?'o texto de inventário anterior':'este item');
     if(!confirm(`Excluir “${label}”? Esta ação não pode ser desfeita.`))return;
     const next=itemId==='__legacy__'?{...stored,legacy:''}:{...stored,items:stored.items.filter(entry=>entry.id!==itemId)};
-    saveStructuredCharacterField(id,'inventory',serializeCharacterInventory,next,'Item excluído.');
+    saveStructuredCharacterField(id,'inventory',serializeCharacterInventory,next,'Item excluído.',true);
     return;
   }
   if(action==='edit-character-description'){
@@ -691,8 +723,23 @@ document.addEventListener('submit',event=>{
     const name=String(fd.get('name')||'').trim();const cover=String(fd.get('cover')||'').trim();if(cover&&!validImageUrl(cover)){toast('A capa deve usar uma URL HTTP ou HTTPS válida.','error');return;}
     ok=commitAndSync(d=>{const old=d.campaigns.find(x=>x.id===id);const record={id:id||uid(),name,description:String(fd.get('description')||'').trim(),cover,createdAt:old?.createdAt||now,updatedAt:now,createdBy:old?.createdBy||currentUser.id,membershipRole:old?.membershipRole||''};const index=d.campaigns.findIndex(x=>x.id===id);if(index>=0)d.campaigns[index]=record;else{d.campaigns.push(record);d.boards[record.id]={campaignId:record.id,cards:[],paths:[],links:[],updatedAt:now};}});success=id?'Campanha atualizada.':'Campanha criada. O quadro está vazio.';
   } else if(form.querySelector('[name="attr_0"]')) {
-    const old=getState().characters.find(x=>x.id===id);const portrait=String(fd.get('portrait')||'').trim();if(portrait&&!validImageUrl(portrait)){toast('A imagem deve usar uma URL HTTP ou HTTPS válida.','error');return;}const attributes={};['Agilidade','Força','Intelecto','Presença','Vigor'].forEach((name,i)=>attributes[name]=String(fd.get(`attr_${i}`)||'').trim());const campaignIds=fd.getAll('campaignIds').map(String);
-    const record={id:id||uid(),name:String(fd.get('name')||'').trim(),playerNote:String(fd.get('playerNote')||'').trim(),playerName:String(fd.get('playerName')||'').trim(),portrait,origin:String(fd.get('origin')||'').trim(),className:String(fd.get('className')||'').trim(),path:String(fd.get('path')||'').trim(),nex:String(fd.get('nex')||'').trim(),rank:String(fd.get('rank')||'').trim(),pv:String(fd.get('pv')||'').trim(),pvMax:String(fd.get('pvMax')||'').trim(),pe:String(fd.get('pe')||'').trim(),peMax:String(fd.get('peMax')||'').trim(),san:String(fd.get('san')||'').trim(),sanMax:String(fd.get('sanMax')||'').trim(),defense:String(fd.get('defense')||'').trim(),attributes,skills:String(fd.get('skills')||'').trim(),abilities:old?.abilities??'',inventory:old?.inventory??'',rituals:String(fd.get('rituals')||'').trim(),description:old?.description??'',progress:String(fd.get('progress')||'').trim(),notes:old?.notes??'',campaignIds,createdAt:old?.createdAt||now,updatedAt:now,ownerId:old?.ownerId||currentUser.id,createdBy:old?.createdBy||currentUser.id};
+    const old=getState().characters.find(x=>x.id===id);
+    const portrait=String(fd.get('portrait')||'').trim();
+    if(portrait&&!validImageUrl(portrait)){toast('A imagem deve usar uma URL HTTP ou HTTPS válida.','error');return;}
+    const attributes={};
+    ['Agilidade','Força','Intelecto','Presença','Vigor'].forEach((name,i)=>attributes[name]=String(fd.get(`attr_${i}`)||'').trim());
+    const campaignIds=fd.getAll('campaignIds').map(String);
+    const isAdmin=currentProfile?.role==='admin';
+    const ownerChoice=isAdmin?String(fd.get('ownerId')||''):'';
+    const selectedPlayer=characterPlayerProfiles.find(profile=>profile.user_id===ownerChoice&&profile.role==='player');
+    const keepOwner=ownerChoice==='__keep__'&&Boolean(old?.ownerId);
+    const ownerId=isAdmin?(selectedPlayer?.user_id||(keepOwner?old.ownerId:currentUser.id)):(old?.ownerId||currentUser.id);
+    let playerName='';
+    if(isAdmin){
+      if(selectedPlayer)playerName=playerProfileDisplayName(selectedPlayer,characterPlayerProfiles);
+      else if(keepOwner||(!ownerChoice&&old?.ownerId===currentUser.id))playerName=old?.playerName||'';
+    }else playerName=String(fd.get('playerName')||'').trim();
+    const record={id:id||uid(),name:String(fd.get('name')||'').trim(),playerNote:String(fd.get('playerNote')||'').trim(),playerName,portrait,origin:String(fd.get('origin')||'').trim(),className:String(fd.get('className')||'').trim(),path:String(fd.get('path')||'').trim(),nex:String(fd.get('nex')||'').trim(),rank:String(fd.get('rank')||'').trim(),pv:String(fd.get('pv')||'').trim(),pvMax:String(fd.get('pvMax')||'').trim(),pe:String(fd.get('pe')||'').trim(),peMax:String(fd.get('peMax')||'').trim(),san:String(fd.get('san')||'').trim(),sanMax:String(fd.get('sanMax')||'').trim(),defense:String(fd.get('defense')||'').trim(),attributes,skills:String(fd.get('skills')||'').trim(),abilities:old?.abilities??'',inventory:old?.inventory??'',rituals:String(fd.get('rituals')||'').trim(),description:old?.description??'',progress:String(fd.get('progress')||'').trim(),notes:old?.notes??'',campaignIds,createdAt:old?.createdAt||now,updatedAt:now,ownerId,createdBy:old?.createdBy||currentUser.id};
     ok=commitAndSync(d=>{const index=d.characters.findIndex(x=>x.id===id);if(index>=0)d.characters[index]=record;else d.characters.push(record);});success=id?'Ficha atualizada.':'Ficha criada.';
   } else if(form.querySelector('[name="campaignId"]')) {
     const old=getState().sessions.find(x=>x.id===id);const record={id:id||uid(),campaignId:String(fd.get('campaignId')),title:String(fd.get('title')||'').trim(),date:String(fd.get('date')||''),description:String(fd.get('description')||'').trim(),status:String(fd.get('status')||'Planejada'),notes:String(fd.get('notes')||'').trim(),createdAt:old?.createdAt||now,updatedAt:now,createdBy:old?.createdBy||currentUser.id};
