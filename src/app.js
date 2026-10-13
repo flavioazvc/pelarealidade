@@ -1,6 +1,6 @@
 import { loadState, getState, getStorageError, commit as commitLocal, uid, subscribe, importArchive, exportArchive, getLegacyState, setStorageScope, replaceState, clearMemory } from './store.js?v=4';
 import { mountBoard } from './board.js?v=3';
-import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues } from './character-sheet.js?v=9';
+import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=10';
 import { getClient, readProfile, signInWithNickname, requestAdminOperation, listProfiles, signOut } from './auth.js?v=1';
 import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=1';
 
@@ -325,7 +325,7 @@ function renderCharacterDetail(data,id,section='geral') {
   const character=data.characters.find(item=>item.id===id);
   if(!character) return `<section class="page">${empty('Ficha não encontrada','Ela pode ter sido removida.',`<a href="#/personagens" class="button">Ver biblioteca</a>`)}</section>`;
   const linked=data.campaigns.filter(campaign=>(character.campaignIds||[]).includes(campaign.id));
-  return renderCharacterSheet(character,linked,section);
+  return renderCharacterSheet(character,linked,section,mayManageCharacter(character));
 }
 function renderSessions(data) { const list=data.sessions.slice().sort(byDate); return `<section class="page">${header('Sessões','CADERNO DE SESSÕES','Registre data, estado e anotações sem conteúdo narrativo automático.',`<button class="button button-primary" data-create="session">＋ Nova sessão</button>`)}<div class="tabs"><span class="active">Todas · ${list.length}</span><span>Planejadas · ${list.filter(s=>s.status==='Planejada').length}</span><span>Realizadas · ${list.filter(s=>s.status==='Realizada').length}</span><span>Canceladas · ${list.filter(s=>s.status==='Cancelada').length}</span></div>${list.length?`<div class="card-list">${list.map(s=>`<article class="record-card"><div class="record-main"><h3>${esc(s.title)}</h3><p>${esc(data.campaigns.find(c=>c.id===s.campaignId)?.name||'Campanha removida')} · ${esc(s.description||'Sem descrição.')}</p><div class="record-meta"><span>${s.date?fmtDate(s.date,{dateStyle:'medium',timeStyle:'short'}):'DATA A DEFINIR'}</span><span>${(s.notes||'').length} CARACTERES DE ANOTAÇÕES</span></div></div><div class="record-actions"><select class="status-select" data-session-status="${esc(s.id)}" aria-label="Estado da sessão">${['Planejada','Realizada','Cancelada'].map(v=>`<option ${s.status===v?'selected':''}>${v}</option>`).join('')}</select><button class="button button-sm" data-action="edit-session" data-id="${esc(s.id)}">Editar</button><button class="button button-sm" data-action="delete-session" data-id="${esc(s.id)}">Excluir</button></div></article>`).join('')}</div>`:empty('Nenhuma sessão cadastrada','Crie uma sessão vinculada a uma campanha existente.',data.campaigns.length?`<button class="button button-primary" data-create="session">＋ Criar sessão</button>`:`<button class="button" data-create="campaign">Criar uma campanha primeiro</button>`)}</section>`; }
 function renderPlanning(data) {
@@ -410,7 +410,32 @@ function characterForm(ch={},preselected='') {
     return `<div class="sheet-resource-edit"><div class="field"><label for="f-${key}">${label} atual</label><input id="f-${key}" name="${key}" type="text" inputmode="numeric" value="${esc(values.current)}" placeholder="0"></div><div class="field"><label for="f-${key}Max">${label} máximo</label><input id="f-${key}Max" name="${key}Max" type="number" min="0" step="1" value="${esc(values.max)}" placeholder="Definir limite"></div></div>`;
   }).join('');
   const resourceFields=`<fieldset class="field full sheet-resource-fieldset"><legend>Pontos da ficha</legend><div class="sheet-resource-form-grid">${resources}</div><small>Informe o valor atual e o limite de PV, SAN e PE. A ficha não calcula esses números automaticamente.</small></fieldset>`;
-  openModal(ch.id?'Editar ficha':'Nova ficha','Preencha os dados do personagem. Os limites de PV, SAN e PE são definidos pela mesa.',`<input type="hidden" name="id" value="${esc(ch.id||'')}"><div class="form-grid">${valueField('name','Nome do personagem *',ch.name||'','text','required maxlength="100"')}${valueField('playerName','Jogador(a)',ch.playerName||'')}${valueField('portrait','Imagem do personagem/jogador (URL, opcional)',ch.portrait||'','url','placeholder="https://…"')}${valueField('playerNote','Anotação de jogador (opcional)',ch.playerNote||'')}${valueField('origin','Origem',ch.origin||'')}${valueField('className','Classe',ch.className||'')}${valueField('path','Trilha',ch.path||'')}${valueField('nex','NEX',ch.nex||'')}${valueField('rank','Patente',ch.rank||'')}${resourceFields}${valueField('defense','Defesa',ch.defense||'','text')}${attr}${textareaField('skills','Perícias',ch.skills||'','Anote valores ou treinamento conforme a versão usada pela mesa.')}${textareaField('abilities','Habilidades e poderes',ch.abilities||'')}${textareaField('inventory','Inventário e equipamentos',ch.inventory||'')}${textareaField('rituals','Rituais',ch.rituals||'')}${textareaField('description','Descrição do personagem',ch.description||'')}${textareaField('progress','Progressão / outros campos',ch.progress||'')}${textareaField('notes','Notas da mesa',ch.notes||'')}${campaigns}</div>`);
+  const fields=[
+    valueField('name','Nome do personagem *',ch.name||'','text','required maxlength="100"'),
+    valueField('playerName','Jogador(a)',ch.playerName||''),
+    valueField('portrait','Imagem do personagem/jogador (URL, opcional)',ch.portrait||'','url','placeholder="https://…"'),
+    valueField('playerNote','Anotação de jogador (opcional)',ch.playerNote||''),
+    valueField('origin','Origem',ch.origin||''),
+    valueField('className','Classe',ch.className||''),
+    valueField('path','Trilha',ch.path||''),
+    valueField('nex','NEX',ch.nex||''),
+    valueField('rank','Patente',ch.rank||''),
+    resourceFields,
+    valueField('defense','Defesa',ch.defense||'','text'),
+    attr,
+    textareaField('abilities','Habilidades e poderes',ch.abilities||''),
+    textareaField('inventory','Inventário e equipamentos',ch.inventory||''),
+    textareaField('rituals','Rituais',ch.rituals||''),
+    textareaField('description','Descrição do personagem',ch.description||''),
+    textareaField('progress','Progressão / outros campos',ch.progress||''),
+    textareaField('notes','Notas da mesa',ch.notes||''),
+    campaigns,
+  ].join('');
+  openModal(
+    ch.id?'Editar ficha':'Nova ficha',
+    'Preencha os dados do personagem. Os limites de PV, SAN e PE são definidos pela mesa.',
+    `<input type="hidden" name="id" value="${esc(ch.id||'')}"><input type="hidden" name="skills" value="${esc(ch.skills||'')}"><div class="form-grid">${fields}</div>`
+  );
 }
 
 function sessionForm(s={},preselected='') {
@@ -444,6 +469,15 @@ document.addEventListener('click',event=>{
     return;
   }
   if(action==='close-modal'){modal.close();return;}
+  if(action==='cycle-skill-training'){
+    const character=data.characters.find(item=>item.id===id);
+    if(!character||!mayManageCharacter(character))return;
+    const skills=cycleSkillTraining(character,button.dataset.skill);
+    if(typeof skills!=='string')return;
+    const ok=commitAndSync(d=>{const target=d.characters.find(item=>item.id===id);if(target){target.skills=skills;target.updatedAt=new Date().toISOString();}});
+    if(ok)render();else toast('Não foi possível salvar o bônus da perícia.','error');
+    return;
+  }
   if(action==='logout'){void logoutUser();return;}
   if(action==='migrate-local'){void migrateLegacyData();return;}
   if(action==='manage-members'){void openCampaignMembers(id);return;}

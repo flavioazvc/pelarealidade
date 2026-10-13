@@ -16,6 +16,39 @@ const TABS = [
   { id: 'descricao', label: 'DESCRIÇÃO', icon: '06' },
 ];
 
+const SKILL_TRAINING_PREFIX = 'pr-skill-training:v1:';
+const SKILL_TRAINING_LEVELS = [0, 5, 10, 15];
+const SKILLS = [
+  { name: 'Acrobacia', attribute: 'AGI' },
+  { name: 'Adestramento', attribute: 'PRE' },
+  { name: 'Artes', attribute: 'PRE' },
+  { name: 'Atletismo', attribute: 'AGI' },
+  { name: 'Atualidades', attribute: 'INT' },
+  { name: 'Ciências', attribute: 'INT' },
+  { name: 'Crime', attribute: 'AGI' },
+  { name: 'Diplomacia', attribute: 'PRE' },
+  { name: 'Enganação', attribute: 'PRE' },
+  { name: 'Fortitude', attribute: 'VIG' },
+  { name: 'Furtividade', attribute: 'AGI' },
+  { name: 'Iniciativa', attribute: 'AGI' },
+  { name: 'Intimidação', attribute: 'PRE' },
+  { name: 'Intuição', attribute: 'PRE' },
+  { name: 'Investigação', attribute: 'INT' },
+  { name: 'Luta', attribute: 'FOR' },
+  { name: 'Medicina', attribute: 'INT' },
+  { name: 'Ocultismo', attribute: 'INT' },
+  { name: 'Percepção', attribute: 'PRE' },
+  { name: 'Pilotagem', attribute: 'AGI' },
+  { name: 'Pontaria', attribute: 'AGI' },
+  { name: 'Profissão', attribute: 'INT' },
+  { name: 'Reflexos', attribute: 'AGI' },
+  { name: 'Religião', attribute: 'PRE' },
+  { name: 'Sobrevivência', attribute: 'INT' },
+  { name: 'Tática', attribute: 'INT' },
+  { name: 'Tecnologia', attribute: 'INT' },
+  { name: 'Vontade', attribute: 'PRE' },
+];
+
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -120,9 +153,68 @@ function textTab(title, kicker, value, emptyMessage, className = '') {
   </section>`;
 }
 
-function tabContent(character, tab) {
+function parseSkillTraining(raw) {
+  const source = String(raw ?? '');
+  if (!source.startsWith(SKILL_TRAINING_PREFIX)) return { bonuses: {}, legacy: source.slice(0, 10000) };
+  try {
+    const stored = JSON.parse(source.slice(SKILL_TRAINING_PREFIX.length));
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) throw new Error('Dados de perícia inválidos.');
+    const rawBonuses = stored.bonuses && typeof stored.bonuses === 'object' && !Array.isArray(stored.bonuses)
+      ? stored.bonuses
+      : {};
+    const bonuses = {};
+    for (const skill of SKILLS) {
+      const value = Number(rawBonuses[skill.name]);
+      if (SKILL_TRAINING_LEVELS.includes(value)) bonuses[skill.name] = value;
+    }
+    return { bonuses, legacy: typeof stored.legacy === 'string' ? stored.legacy.slice(0, 10000) : '' };
+  } catch {
+    return { bonuses: {}, legacy: source.slice(0, 10000) };
+  }
+}
+
+function skillTrainingValue(training, name) {
+  const value = Number(training.bonuses[name]);
+  return SKILL_TRAINING_LEVELS.includes(value) ? value : 0;
+}
+
+export function cycleSkillTraining(character, skillName) {
+  if (!SKILLS.some(skill => skill.name === skillName)) return null;
+  const training = parseSkillTraining(character?.skills);
+  const current = skillTrainingValue(training, skillName);
+  const next = SKILL_TRAINING_LEVELS[(SKILL_TRAINING_LEVELS.indexOf(current) + 1) % SKILL_TRAINING_LEVELS.length];
+  return `${SKILL_TRAINING_PREFIX}${JSON.stringify({
+    bonuses: { ...training.bonuses, [skillName]: next },
+    legacy: training.legacy.slice(0, 10000),
+  })}`;
+}
+
+function skillTab(character, canEdit) {
+  const training = parseSkillTraining(character.skills);
+  return `<section class="sheet-content-card skills-panel" aria-labelledby="sheet-skills-title">
+    <div class="skills-panel-heading">
+      <div><span class="sheet-kicker">TREINAMENTO</span><h2 id="sheet-skills-title">Perícias</h2></div>
+      <p>Clique no bônus para alternar entre + 0, + 5, + 10 e + 15.</p>
+    </div>
+    <div class="skill-grid" role="list">
+      ${SKILLS.map(skill => {
+        const bonus = skillTrainingValue(training, skill.name);
+        const next = SKILL_TRAINING_LEVELS[(SKILL_TRAINING_LEVELS.indexOf(bonus) + 1) % SKILL_TRAINING_LEVELS.length];
+        const label = canEdit
+          ? `${skill.name}: treino + ${bonus}. Clique para alterar para + ${next}.`
+          : `${skill.name}: treino + ${bonus}.`;
+        return `<article class="skill-card skill-card--${bonus}" role="listitem">
+          <div class="skill-card-copy"><span class="skill-name">${esc(skill.name)}</span><small class="skill-attribute" aria-label="Atributo base ${skill.attribute}">${skill.attribute}</small></div>
+          <button class="skill-bonus" type="button" data-action="cycle-skill-training" data-id="${esc(character.id)}" data-skill="${esc(skill.name)}" aria-label="${esc(label)}" title="Bônus de treino" ${canEdit ? '' : 'disabled'}>+ ${bonus}</button>
+        </article>`;
+      }).join('')}
+    </div>
+  </section>`;
+}
+
+function tabContent(character, tab, canEdit) {
   if (tab === 'geral') return '';
-  if (tab === 'pericias') return textTab('Perícias', 'TREINAMENTO', character.skills, 'Nenhuma perícia registrada.');
+  if (tab === 'pericias') return skillTab(character, canEdit);
   if (tab === 'habilidades') return textTab('Habilidades', 'RECURSOS DO PERSONAGEM', character.abilities, 'Nenhuma habilidade registrada.');
   if (tab === 'inventario') return textTab('Inventário', 'EQUIPAMENTOS', character.inventory, 'O inventário está vazio.');
   if (tab === 'rituais') return textTab('Rituais', 'CONHECIMENTO PARANORMAL', character.rituals, 'Nenhum ritual registrado.');
@@ -133,7 +225,7 @@ function tabContent(character, tab) {
   return '';
 }
 
-export function renderCharacterSheet(character, _linkedCampaigns = [], activeTab = 'geral') {
+export function renderCharacterSheet(character, _linkedCampaigns = [], activeTab = 'geral', canEdit = true) {
   const selectedTab = TABS.some(tab => tab.id === activeTab) ? activeTab : 'geral';
   const name = esc(character.name || 'Personagem sem nome');
   const image = safeImage(character.portrait);
@@ -163,7 +255,7 @@ export function renderCharacterSheet(character, _linkedCampaigns = [], activeTab
         </div>
       </section>
     </div>`;
-  const selectedContent = selectedTab === 'geral' ? overview : tabContent(character, selectedTab);
+  const selectedContent = selectedTab === 'geral' ? overview : tabContent(character, selectedTab, canEdit);
 
   return `<section class="page character-sheet-page">
     <div class="sheet-toolbar">
