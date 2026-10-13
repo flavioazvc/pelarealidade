@@ -212,14 +212,13 @@ function inventoryItemCard(character, item, canEdit, legacy = false) {
   const badges = legacy
     ? '<span class="inventory-item-tag inventory-item-tag--legacy">Dados anteriores</span>'
     : `<span class="inventory-item-tag">Categoria ${esc(item.category)}</span><span class="inventory-item-tag">${item.spaces} ${item.spaces === 1 ? 'espaço' : 'espaços'}</span>`;
-  const controls = canEdit ? `<div class="sheet-card-actions">
+  const editButton = canEdit ? `<div class="inventory-item-actions">
       <button class="button button-sm" type="button" data-action="edit-inventory-item" data-id="${esc(character.id)}" data-item="${esc(itemId)}">Editar</button>
-      <button class="button button-sm button-danger" type="button" data-action="delete-inventory-item" data-id="${esc(character.id)}" data-item="${esc(itemId)}">Excluir</button>
     </div>` : '';
   const description = String(item.description ?? '');
   return `<details class="inventory-item-card${legacy ? ' inventory-item-card--legacy' : ''}">
     <summary class="inventory-item-summary"><span class="inventory-item-name">${esc(item.name || 'Item sem nome')}</span><span class="inventory-item-tags">${badges}</span><span class="ability-expand-hint">Detalhes</span></summary>
-    <div class="inventory-item-body">${controls}<div class="rule-text">${description ? highlightRuleText(description, character) : '<span class="sheet-empty-copy">Sem descrição cadastrada.</span>'}</div></div>
+    <div class="inventory-item-body"><div class="rule-text">${description ? highlightRuleText(description, character) : '<span class="sheet-empty-copy">Sem descrição cadastrada.</span>'}</div>${editButton}</div>
   </details>`;
 }
 
