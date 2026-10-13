@@ -2,21 +2,31 @@
 
 ## Implantação e persistência atual
 
-O site continua sendo uma aplicação estática publicada no GitHub Pages. Campanhas, fichas, sessões e quadros ainda são gravados no `localStorage` do navegador e não são enviados ao Supabase. Exportação JSON continua sendo o backup disponível; não há migração remota nem recuperação de dados entre dispositivos nesta etapa.
+O site é uma aplicação estática publicada no GitHub Pages. A autenticação usa Supabase Auth com nickname; campanhas, fichas, sessões e quadros são sincronizados com o Supabase, com RLS no Postgres. O `localStorage` permanece como estado local/cache do navegador e o backup JSON continua disponível.
 
-## Integração Supabase — etapa de conexão
+## Integração Supabase — estado atual
 
-`src/supabase.js` guarda a URL pública do projeto e a chave `publishable`, inicializa de forma assíncrona o SDK `@supabase/supabase-js` em versão fixada e consulta `auth/v1/settings` para confirmar que a API Auth responde. Essa verificação não cria usuário, não abre sessão e não consulta nem grava dados do jogo. Se o SDK ou a API falhar, a aplicação local continua funcionando.
+`src/supabase.js` inicializa o SDK `@supabase/supabase-js` com URL e chave publishable. `src/auth.js` autentica por nickname por meio da Edge Function autorizada; as Edge Functions `username-login` e `admin-users` mediam login e operações administrativas. A criação de contas permanece restrita ao administrador e o cadastro público fica desativado.
 
-A chave publishable foi projetada para uso no navegador e o repositório GitHub é público. Ela não é uma credencial administrativa. Nenhuma chave Secret/`service_role`, senha de banco ou token administrativo pode ser publicada no HTML, JavaScript ou GitHub. Operações administrativas futuras — convites, schema e migrações — precisam de execução confiável no servidor ou no painel Supabase.
+A chave publishable foi projetada para uso no navegador e o repositório GitHub é público. Ela não é uma credencial administrativa. Nenhuma chave Secret/`service_role`, senha de banco ou token administrativo pode ser publicada no HTML, JavaScript ou GitHub. Migrações de schema devem ser executadas por uma ferramenta autenticada de administração ou pelo painel Supabase.
 
-Na primeira verificação, o endpoint Auth respondeu com sucesso e indicou que o cadastro público estava habilitado. Após o login autorizado no painel, `Allow new users to sign up` foi desligado e a resposta pública de `auth/v1/settings` confirmou `disable_signup: true`. A confirmação de e-mail continua habilitada. Ainda não foram criadas tabelas, políticas RLS, buckets, Edge Functions, convites ou contas de jogadores/mestres; não trate a aplicação como sincronizada ou autenticada.
+O perfil protegido armazena nickname, papel e nome de exibição — nunca a senha. Os papéis aplicados pelo servidor são `admin`, `master` e `player`.
 
-## Arquitetura de contas e permissões aprovada
+## Arquitetura de contas e permissões atual
 
-A arquitetura futura usa Supabase Auth para credenciais de acesso. Os convites são iniciados pelo Administrador Flávio; cada convidado conclui a própria conta e define sua senha. A aplicação não guarda senha recuperável, e o administrador não consulta as senhas dos usuários.
+O administrador Flávio cria/gerencia contas; o login é exclusivo por nickname e senha via Supabase Auth. A aplicação não guarda senha recuperável e o administrador não consulta as senhas dos usuários. O nome de exibição do perfil é usado na associação visível entre ficha e jogador.
 
-Papéis previstos: `admin` (Flávio), `master` e `player`. Flávio poderá ler todas as fichas e campanhas e administrar contas; um mestre verá as campanhas que administra; um jogador verá as próprias fichas e as campanhas das quais é membro. As autorizações deverão ser verificadas no servidor e aplicadas por RLS no Postgres e no Storage. Papéis não devem ser confiados a metadados editáveis pelo usuário.
+Flávio pode ler e administrar os dados globais; mestres gerenciam suas campanhas; jogadores ficam limitados às próprias fichas e participações autorizadas. A autorização é verificada no servidor e no RLS; papéis não são confiados a metadados editáveis pelo usuário.
+
+## Sessões ao vivo e acesso de jogadores
+
+Uma sessão pode ser iniciada/encerrada por administrador ou mestre na área **Sessões**. Há no máximo uma sessão ativa por campanha. Jogadores veem apenas uma tela preta de espera até sua campanha ter sessão ativa; então a aplicação mostra somente as fichas vinculadas ao próprio usuário nessa campanha, em modo somente leitura. O estado é verificado novamente a cada 10 segundos para refletir início e encerramento sem exigir recarga. O RLS limita a leitura de campanhas e sessões ao contexto ativo, bloqueia quadros e impede a leitura de fichas de outros jogadores.
+
+A migração `20261013130000_live_player_session.sql` foi aplicada pelo SQL Editor do projeto Supabase conectado em 13/10/2026 e verificada por consulta de schema/políticas. O arquivo versionado é aditivo e idempotente; execute-o também em qualquer ambiente Supabase separado antes de implantar o frontend correspondente.
+
+## Rituais da ficha
+
+Rituais são armazenados em formato estruturado, preservando texto legado existente. Elemento, círculo, execução e alcance usam as opções definidas na interface; alvo, duração e resistência são textos personalizados. Efeito base e versões Discente/Verdadeiro são opcionais/personalizáveis. A imagem é registrada como URL HTTP(S); upload de arquivo para Storage ainda não faz parte deste fluxo.
 
 ## Ficha de personagem
 

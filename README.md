@@ -504,35 +504,31 @@ Priorize uma aplicação funcional, confiável e expansível, em vez de uma inte
 
 ---
 
-## Implementação inicial — instruções e limites
+## Implementação atual — instruções e limites
 
-A aplicação estática fica em `index.html`, `styles.css` e `src/`. Não exige build próprio. `src/supabase.js` configura o cliente do projeto Supabase com a URL e a chave publishable, e verifica a API Auth. Essa chave é pública por definição; nenhuma chave Secret ou senha administrativa deve ser adicionada ao repositório. Para executar localmente, rode `python3 -m http.server 8000` na raiz do repositório e abra `http://localhost:8000`.
+A aplicação estática fica em `index.html`, `styles.css` e `src/` e não exige build próprio. `src/supabase.js` configura o cliente com a URL e a chave publishable; a autenticação por nickname usa as Edge Functions do Supabase. A chave publishable é pública por definição. Nunca adicione chaves Secret/`service_role`, senhas ou tokens administrativos ao repositório. Para executar localmente, rode `python3 -m http.server 8000` na raiz e abra `http://localhost:8000`.
 
-### Funcionalidades desta versão
+### Funcionalidades
 
-- Painel inicial sem conteúdo fictício; criação, consulta, edição e exclusão de campanhas, personagens e sessões.
-- Fichas independentes com associação/desassociação a várias campanhas. A ficha usa campos manuais de identificação, atributos, perícias, PV, PE, SAN, Defesa, NEX/nível, patente, poderes, inventário e notas.
-- Sessões vinculadas à campanha, com título, data opcional, descrição, anotações e estados Planejada, Realizada e Cancelada.
-- Um quadro em branco por campanha, com navegação, zoom, cartões móveis/redimensionáveis/coloridos, desenho livre, setas com rótulo editável e salvamento automático local.
-- Exportação e importação de backup JSON. Excluir campanha remove sessões e quadro, mas preserva as fichas e remove apenas suas associações.
-- Layout adaptável a telas menores; o cliente Supabase e a verificação de conectividade Auth estão configurados, mas ainda não há tela de login nem contas da aplicação.
+- Campanhas, fichas e sessões com persistência sincronizada ao Supabase; autenticação por nickname e senha, com contas administradas pelo perfil autorizado.
+- Fichas com abas substituíveis de geral, perícias, habilidades, inventário, rituais e descrição. Os dados da ficha são vinculáveis a um jogador pelo perfil/nome de exibição.
+- Rituais estruturados: elemento, círculo, execução, alcance, alvo, duração, resistência, URL de imagem, descrição base e versões Discente/Verdadeiro opcionais.
+- Sessões vinculadas à campanha, com estados Planejada, Realizada e Cancelada e controles para iniciar/encerrar a sessão.
+- Ao entrar, jogadores aguardam em uma tela preta; com a sessão da campanha ativa, acessam somente suas próprias fichas, em modo de leitura. O restante da navegação e dos quadros fica oculto.
+- Quadros de planejamento e backup JSON continuam disponíveis para os perfis autorizados.
 
-### Persistência e privacidade
+### Persistência, acesso e privacidade
 
-A gravação dos registros do jogo ainda usa `localStorage` no navegador. A conexão Supabase desta etapa consulta apenas as configurações públicas da API Auth para validar disponibilidade; não envia campanhas, fichas, sessões ou quadros. O auto cadastro está desativado no projeto, mas convites administrativos ainda não foram implementados. Assim, os dados ainda não sincronizam entre dispositivos nem recebem políticas de acesso remoto. Qualquer pessoa com acesso ao mesmo perfil de navegador/dispositivo pode ler ou apagar esses registros. Exporte backups e não use dispositivos compartilhados para dados que precisem de sigilo. Veja `docs/DECISOES-TECNICAS.md` para as decisões e fontes consultadas.
+O Supabase é a fonte compartilhada dos registros; `localStorage` é usado como cache local. As tabelas são protegidas por RLS. A migração `supabase/migrations/20261013130000_live_player_session.sql` foi aplicada e verificada no projeto Supabase do deploy em 13/10/2026; ela adiciona o estado de sessão ativa e restringe jogadores ao período de sessão e às próprias fichas. Para outros ambientes, execute a migração antes de liberar esse fluxo. Ela não apaga registros do jogo, mas substitui políticas de acesso para aplicar os limites descritos. Veja `docs/DECISOES-TECNICAS.md` para o desenho técnico.
 
 ### Regras da ficha
 
-A referência declarada é **Ordem Paranormal RPG — Livro Básico, versão 1.3**, publicada no Registro de Atualizações da Jambô em 31/01/2025. A editora esclareceu que as correções de reimpressão não constituíam uma nova edição do sistema. Os valores da ficha são manuais; não há cálculos automáticos nem validação de combinações de regras. Consulte a cópia oficial da mesa e suas atualizações.
+A referência declarada é **Ordem Paranormal RPG — Livro Básico, versão 1.3**, publicada no Registro de Atualizações da Jambô em 31/01/2025. Os valores da ficha são manuais; não há cálculos automáticos nem validação de combinações de regras. Consulte a cópia oficial da mesa e suas atualizações.
 
 ### GitHub Pages
 
-O repositório já tem GitHub Pages configurado para publicar a branch `main` a partir da raiz (`/(root)`). Cada envio para `main` atualiza o site em <https://flavioazvc.github.io/pelarealidade/>. Os assets usam caminhos relativos e o roteamento usa fragmentos, compatíveis com a URL de projeto.
+O repositório publica a branch `main` na raiz pelo GitHub Pages: <https://flavioazvc.github.io/pelarealidade/>. Cada merge em `main` atualiza o site. Os assets usam caminhos relativos e o roteamento usa fragmentos, compatíveis com a URL de projeto.
 
-### Verificações realizadas nesta primeira versão
+### Verificações e limitações
 
-Foram exercitados no navegador isolado: criar campanha e recarregá-la; criar ficha com campanha pré-selecionada; criar sessão e mudar seu estado, conferindo os contadores; criar/mover cartões; ligar cartões e editar o rótulo da conexão; desenhar traço; excluir uma campanha e confirmar a remoção das sessões/quadro com preservação da ficha; e excluir os registros de teste. Também foi verificado por teste automatizado o ciclo exportar/importar JSON, a rejeição de estrutura inválida e a normalização de valores adulterados no quadro. O armazenamento de teste foi deixado vazio. Testes automatizados de regras, baterias extensivas de importação, leitores de tela e dispositivos físicos ainda não foram executados.
-
-### Limitações conhecidas
-
-Ainda não há sincronização dos registros do jogo com o banco, contas de usuário, interface de login, políticas RLS, backup remoto, cálculos oficiais da ficha, upload de imagens (a capa é uma URL HTTP/HTTPS), colaboração em tempo real nem importação de fichas existentes. O cliente Supabase apenas valida a conectividade Auth. Se o navegador apagar os dados do site ou a cota local for excedida, use o backup JSON para restaurar; a aplicação ainda não oferece recuperação remota.
+Os módulos JavaScript passaram por verificação de sintaxe; o CSS foi analisado sem erros; os testes locais cobriram opções e serialização de rituais, preservação de texto legado, prévia de imagem e diferenças entre edição de mestre e leitura de jogador. Também foi executado `git diff --check`. Ainda não foi feito um teste end-to-end com contas reais de jogador nem um teste físico em leitores de tela/dispositivos. A imagem do ritual é indicada por URL HTTP(S); upload direto de arquivo para Storage não faz parte deste fluxo. A tela do jogador atualiza a sessão a cada 10 segundos, não por atualização em tempo real.

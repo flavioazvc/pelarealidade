@@ -1,4 +1,4 @@
-import { INVENTORY_CATEGORIES, readCharacterAbilities, readCharacterInventory, readCharacterDescription } from './character-data.js?v=1';
+import { INVENTORY_CATEGORIES, readCharacterAbilities, readCharacterInventory, readCharacterDescription, readCharacterRituals } from './character-data.js?v=2';
 
 const ATTRIBUTES = [
   // Posições percentuais especificadas para os números sobre a arte 720×720.
@@ -123,7 +123,7 @@ function attributeMap(character) {
   </section>`;
 }
 
-function resourceBar(character, key, label, abbreviation, tone) {
+function resourceBar(character, key, label, abbreviation, tone, canEdit) {
   const resource = getCharacterResource(character, key);
   const current = resource.current ?? 0;
   const max = resource.max ?? 0;
@@ -139,11 +139,11 @@ function resourceBar(character, key, label, abbreviation, tone) {
     <div class="sheet-resource-heading"><span>${label}</span><small>${abbreviation}</small></div>
     <div class="sheet-resource-bar" style="--resource-progress:${percent}%" role="group" aria-label="${title}: ${resource.current ?? 'não definido'} de ${max || 'sem limite'}">
       <span class="sheet-resource-fill" aria-hidden="true"></span>
-      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="-5" aria-label="Reduzir ${label} em 5" ${disabled || current <= 0 ? 'disabled' : ''}>«</button>
-      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="-1" aria-label="Reduzir ${label} em 1" ${disabled || current <= 0 ? 'disabled' : ''}>‹</button>
+      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="-5" aria-label="Reduzir ${label} em 5" ${disabled || !canEdit || current <= 0 ? 'disabled' : ''}>«</button>
+      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="-1" aria-label="Reduzir ${label} em 1" ${disabled || !canEdit || current <= 0 ? 'disabled' : ''}>‹</button>
       <strong class="sheet-resource-value">${valueText}</strong>
-      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="1" aria-label="Aumentar ${label} em 1" ${disabled || current >= max ? 'disabled' : ''}>›</button>
-      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="5" aria-label="Aumentar ${label} em 5" ${disabled || current >= max ? 'disabled' : ''}>»</button>
+      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="1" aria-label="Aumentar ${label} em 1" ${disabled || !canEdit || current >= max ? 'disabled' : ''}>›</button>
+      <button class="resource-arrow" type="button" data-action="adjust-resource" data-id="${esc(character.id)}" data-resource="${key}" data-delta="5" aria-label="Aumentar ${label} em 5" ${disabled || !canEdit || current >= max ? 'disabled' : ''}>»</button>
     </div>
     ${disabled ? '<small class="sheet-resource-note">Defina o valor atual e o limite em “Editar ficha”.</small>' : ''}
   </article>`;
@@ -337,17 +337,57 @@ function skillTab(character, canEdit) {
   </section>`;
 }
 
+function ritualCard(character, ritual, canEdit, legacy = false) {
+  const itemId = legacy ? '__legacy__' : ritual.id;
+  const image = safeImage(ritual.image);
+  const imageMarkup = image
+    ? `<img class="ritual-art" src="${image}" alt="Imagem do ritual ${esc(ritual.name || 'sem nome')}" loading="lazy">`
+    : `<div class="ritual-art ritual-art--empty" aria-hidden="true"><span>✧</span></div>`;
+  const label = legacy ? 'Rituais anteriores' : ritual.name || 'Ritual sem nome';
+  const edit = canEdit && !legacy ? `<button class="button button-sm" type="button" data-action="edit-ritual" data-id="${esc(character.id)}" data-item="${esc(itemId)}">Editar</button>` : '';
+  const remove = canEdit && !legacy ? `<button class="button button-sm button-danger" type="button" data-action="delete-ritual" data-id="${esc(character.id)}" data-item="${esc(itemId)}">Remover</button>` : '';
+  const facts = legacy ? '' : `<div class="ritual-facts">
+      <p><strong>Execução:</strong> ${esc(ritual.execution)}</p><p><strong>Alcance:</strong> ${esc(ritual.range)}</p>
+      <p><strong>Alvo:</strong> ${esc(ritual.target)}</p><p><strong>Duração:</strong> ${esc(ritual.duration)}</p>
+      <p><strong>Resistência:</strong> ${esc(ritual.resistance)}</p>
+    </div>`;
+  const description = ritual.description;
+  const variants = legacy ? '' : [
+    ['Discente', ritual.discenteCost, ritual.discente],
+    ['Verdadeiro', ritual.trueCost, ritual.trueEffect],
+  ].filter(([, , effect]) => String(effect || '').trim()).map(([name, cost, effect]) =>
+    `<section class="ritual-variant"><h4>${name}${cost ? ` <span>(+${esc(cost)} PE)</span>` : ''}</h4><div class="rule-text">${highlightRuleText(effect, character)}</div></section>`
+  ).join('');
+  return `<details class="ritual-card${legacy ? ' ritual-card--legacy' : ''}">
+    <summary class="ritual-card-summary"><span class="ritual-summary-title">${esc(label)}</span>${legacy ? '<span class="ritual-element-badge ritual-element-badge--legacy">ANTIGO</span>' : `<span class="ritual-element-badge ritual-element-badge--${esc(ritual.element.toLocaleLowerCase('pt-BR'))}">${esc(ritual.element.toLocaleUpperCase('pt-BR'))} · ${esc(ritual.circle)}</span>`}<span class="ritual-expand-hint" aria-hidden="true">⌄</span></summary>
+    <div class="ritual-card-body"><div class="ritual-card-layout"><div class="ritual-card-copy">${facts}${description ? `<div class="rule-text ritual-description">${highlightRuleText(description, character)}</div>` : '<p class="sheet-empty-copy">Sem efeito base registrado.</p>'}${variants}</div><div class="ritual-card-image-wrap">${imageMarkup}</div></div>
+      ${legacy && canEdit ? `<div class="ritual-card-actions"><button class="button button-sm" type="button" data-action="convert-legacy-ritual" data-id="${esc(character.id)}">Converter em ritual</button></div>` : ''}
+      ${canEdit && !legacy ? `<div class="ritual-card-actions">${remove}${edit}</div>` : ''}
+    </div>
+  </details>`;
+}
+
+function ritualsTab(character, canEdit) {
+  const data = readCharacterRituals(character);
+  const entries = data.items.map(item => ritualCard(character, item, canEdit));
+  if (data.legacy.trim()) entries.unshift(ritualCard(character, { name: 'Rituais anteriores', description: data.legacy }, canEdit, true));
+  return `<section class="sheet-content-card rituals-panel" aria-labelledby="sheet-rituals-title">
+    <div class="sheet-panel-heading"><h2 id="sheet-rituals-title">Rituais</h2>${canEdit ? `<button class="button button-sm" type="button" data-action="add-ritual" data-id="${esc(character.id)}">＋ Novo ritual</button>` : ''}</div>
+    <div class="ritual-list">${entries.length ? entries.join('') : '<p class="sheet-empty-copy">Nenhum ritual cadastrado.</p>'}</div>
+  </section>`;
+}
+
 function tabContent(character, tab, canEdit) {
   if (tab === 'geral') return '';
   if (tab === 'pericias') return skillTab(character, canEdit);
   if (tab === 'habilidades') return abilitiesTab(character, canEdit);
   if (tab === 'inventario') return inventoryTab(character, canEdit);
-  if (tab === 'rituais') return textTab('Rituais', 'CONHECIMENTO PARANORMAL', character.rituals, 'Nenhum ritual registrado.');
+  if (tab === 'rituais') return ritualsTab(character, canEdit);
   if (tab === 'descricao') return descriptionTab(character, canEdit);
   return '';
 }
 
-export function renderCharacterSheet(character, _linkedCampaigns = [], activeTab = 'geral', canEdit = true) {
+export function renderCharacterSheet(character, _linkedCampaigns = [], activeTab = 'geral', canEdit = true, playerView = false) {
   const selectedTab = TABS.some(tab => tab.id === activeTab) ? activeTab : 'geral';
   const name = esc(character.name || 'Personagem sem nome');
   const image = safeImage(character.portrait);
@@ -371,22 +411,22 @@ export function renderCharacterSheet(character, _linkedCampaigns = [], activeTab
           </div>
         </div>
         <div class="sheet-resources" aria-label="Pontos atuais e limites">
-          ${resourceBar(character, 'pv', 'VIDA', 'PV', 'life')}
-          ${resourceBar(character, 'san', 'SANIDADE', 'SAN', 'sanity')}
-          ${resourceBar(character, 'pe', 'ESFORÇO', 'PE', 'energy')}
+          ${resourceBar(character, 'pv', 'VIDA', 'PV', 'life', canEdit)}
+          ${resourceBar(character, 'san', 'SANIDADE', 'SAN', 'sanity', canEdit)}
+          ${resourceBar(character, 'pe', 'ESFORÇO', 'PE', 'energy', canEdit)}
         </div>
       </section>
     </div>`;
   const selectedContent = selectedTab === 'geral' ? overview : tabContent(character, selectedTab, canEdit);
 
-  return `<section class="page character-sheet-page">
-    <div class="sheet-toolbar">
+  return `<section class="page character-sheet-page${playerView ? ' player-sheet' : ''}">
+    ${playerView ? '' : `<div class="sheet-toolbar">
       <a class="sheet-back-link" href="#/personagens"><span aria-hidden="true">←</span> TODAS AS FICHAS</a>
       <div class="sheet-toolbar-actions">
         <button class="button button-sm" data-action="edit-character" data-id="${esc(character.id)}">Editar ficha</button>
         <button class="button button-sm button-danger" data-action="delete-character" data-id="${esc(character.id)}">Excluir</button>
       </div>
-    </div>
+    </div>`}
 
     <nav class="character-sheet-tabs" aria-label="Seções da ficha">
       ${TABS.map(tab => `<a href="#/personagem/${encodeURIComponent(character.id)}/${tab.id}" class="character-sheet-tab ${selectedTab === tab.id ? 'active' : ''}" ${selectedTab === tab.id ? 'aria-current="page"' : ''}>
