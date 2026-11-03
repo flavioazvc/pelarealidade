@@ -7,6 +7,8 @@ function array(value) { return Array.isArray(value) ? value : []; }
 function copy(value) { return structuredClone(value); }
 function equal(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 function indexById(rows) { return new Map(rows.map(row => [row.id, row])); }
+function isMissingHomebrewTable(error) { return error?.code === '42P01' || error?.code === 'PGRST205'; }
+let homebrewAvailable = true;
 
 export async function loadWorkspace(client, userId) {
   const [campaignResult, memberResult, characterResult, associationResult, sessionResult, boardResult, homebrewResult] = await Promise.all([
@@ -24,7 +26,8 @@ export async function loadWorkspace(client, userId) {
   fail(associationResult.error, 'Vínculos de personagens');
   fail(sessionResult.error, 'Sessões');
   fail(boardResult.error, 'Quadros');
-  if (homebrewResult.error && homebrewResult.error.code !== '42P01') fail(homebrewResult.error, 'Homebrew');
+  homebrewAvailable = !isMissingHomebrewTable(homebrewResult.error);
+  if (homebrewResult.error && homebrewAvailable) fail(homebrewResult.error, 'Homebrew');
 
   const membership = new Map((memberResult.data || [])
     .filter(row => row.user_id === userId)
@@ -158,11 +161,13 @@ export async function syncWorkspace(client, user, previous, next) {
   await saveChangedRows(client, 'campaigns', campaignsToSave.map(row => campaignRow(row, user.id)), oldCampaigns.keys(), ['id']);
   await saveChangedRows(client, 'characters', charactersToSave.map(row => characterRow(row, user.id)), oldCharacters.keys(), ['id']);
   await saveChangedRows(client, 'sessions', sessionsToSave.map(row => sessionRow(row, user.id)), oldSessions.keys(), ['id']);
-  const homebrewToSave = [];
-  for (const kind of ['abilities', 'items', 'rituals']) {
-    for (const row of next.homebrew?.[kind] || []) if (!equal(oldHomebrew.get(row.id), row)) homebrewToSave.push(homebrewRow(row, kind, user.id));
+  if (homebrewAvailable) {
+    const homebrewToSave = [];
+    for (const kind of ['abilities', 'items', 'rituals']) {
+      for (const row of next.homebrew?.[kind] || []) if (!equal(oldHomebrew.get(row.id), row)) homebrewToSave.push(homebrewRow(row, kind, user.id));
+    }
+    await saveChangedRows(client, 'homebrew_entries', homebrewToSave, oldHomebrew.keys(), ['id']);
   }
-  await saveChangedRows(client, 'homebrew_entries', homebrewToSave, oldHomebrew.keys(), ['id']);
 
   const oldLinks = new Set();
   const newLinks = new Set();
@@ -188,7 +193,7 @@ export async function syncWorkspace(client, user, previous, next) {
   }
   for (const id of oldSessions.keys()) if (!newSessions.has(id)) await removeBy(client, 'sessions', 'id', id);
   for (const id of oldCharacters.keys()) if (!newCharacters.has(id)) await removeBy(client, 'characters', 'id', id);
-  for (const id of oldHomebrew.keys()) if (!newHomebrew.has(id)) await removeBy(client, 'homebrew_entries', 'id', id);
+  if (homebrewAvailable) for (const id of oldHomebrew.keys()) if (!newHomebrew.has(id)) await removeBy(client, 'homebrew_entries', 'id', id);
   for (const id of Object.keys(oldBoards)) if (!(id in newBoards)) await removeBy(client, 'planning_boards', 'campaign_id', id);
   for (const id of oldCampaigns.keys()) if (!newCampaigns.has(id)) await removeBy(client, 'campaigns', 'id', id);
 }
