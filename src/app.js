@@ -400,11 +400,13 @@ function initials(value) {
 function playerProfileDisplayName(profile, peers=[]) {
   const displayName=String(profile?.display_name||'').trim();
   const username=String(profile?.username||'').trim();
-  const base=displayName&&displayName.toLocaleLowerCase('pt-BR')!==username.toLocaleLowerCase('pt-BR')?displayName:'Nome não cadastrado';
+  // O nickname também é um nome válido: contas criadas sem nome exibido
+  // normalmente recebem o próprio nickname como display_name (ex.: "teste").
+  const base=displayName||username||'Nome não cadastrado';
   const duplicates=peers.filter(candidate=>{
     const candidateName=String(candidate?.display_name||'').trim();
     const candidateUsername=String(candidate?.username||'').trim();
-    const candidateBase=candidateName&&candidateName.toLocaleLowerCase('pt-BR')!==candidateUsername.toLocaleLowerCase('pt-BR')?candidateName:'Nome não cadastrado';
+    const candidateBase=candidateName||candidateUsername||'Nome não cadastrado';
     return candidateBase.toLocaleLowerCase('pt-BR')===base.toLocaleLowerCase('pt-BR');
   }).length;
   return duplicates>1?`${base} · conta ${String(profile?.user_id||'').slice(0,6)}`:base;
