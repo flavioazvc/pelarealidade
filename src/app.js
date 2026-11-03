@@ -2,7 +2,7 @@ import { loadState, getState, getStorageError, commit as commitLocal, uid, subsc
 import { mountBoard } from './board.js?v=3';
 import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=15';
 import { INVENTORY_CATEGORIES, RITUAL_ELEMENTS, RITUAL_CIRCLES, RITUAL_EXECUTIONS, RITUAL_RANGES, readCharacterAbilities, serializeCharacterAbilities, readCharacterInventory, serializeCharacterInventory, readCharacterDescription, serializeCharacterDescription, readCharacterRituals, serializeCharacterRituals } from './character-data.js?v=3';
-import { getClient, readProfile, signInWithNickname, requestAdminOperation, listProfiles, signOut } from './auth.js?v=1';
+import { getClient, readProfile, signInWithNickname, requestAdminOperation, listProfiles, signOut } from './auth.js?v=2';
 import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=4';
 
 const main = document.querySelector('#main');

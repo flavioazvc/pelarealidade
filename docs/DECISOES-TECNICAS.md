@@ -4,6 +4,8 @@
 
 O site é uma aplicação estática publicada no GitHub Pages. A autenticação usa Supabase Auth com nickname; campanhas, fichas, sessões e quadros são sincronizados com o Supabase, com RLS no Postgres. O `localStorage` permanece como estado local/cache do navegador e o backup JSON continua disponível.
 
+A sessão do Supabase usa `persistSession: false`: ao fechar ou recarregar a página, o usuário precisa entrar novamente. Essa decisão evita login automático e facilita os testes com contas diferentes no mesmo dispositivo.
+
 O catálogo Homebrew também é sincronizado com o Supabase na tabela `homebrew_entries`. Cada habilidade, item ou ritual é armazenado como uma entrada reutilizável pertencente ao usuário; ao ser inserido em uma ficha, seus dados são copiados com um novo identificador e passam a ser independentes do catálogo. A migração `20261103130000_homebrew_catalog.sql` precisa ser aplicada antes de liberar esse fluxo em um ambiente Supabase.
 
 ## Integração Supabase — estado atual

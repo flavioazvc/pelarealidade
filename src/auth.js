@@ -1,4 +1,4 @@
-import { getSupabaseClient } from './supabase.js?v=1';
+import { getSupabaseClient } from './supabase.js?v=2';
 
 function normalizeNickname(value) {
   return String(value ?? '').normalize('NFKC').trim().toLowerCase();

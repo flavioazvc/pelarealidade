@@ -17,7 +17,10 @@ export function getSupabaseClient() {
         return createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
           auth: {
             flowType: 'pkce',
-            persistSession: true,
+            // A sessão deve durar somente enquanto esta página estiver aberta.
+            // Isso permite trocar de conta facilmente durante os testes e evita
+            // login automático ao retornar ao site neste dispositivo.
+            persistSession: false,
             autoRefreshToken: true,
             detectSessionInUrl: true,
             storageKey: 'pela-realidade-auth-v1'
