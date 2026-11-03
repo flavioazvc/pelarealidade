@@ -1,9 +1,9 @@
-import { loadState, getState, getStorageError, commit as commitLocal, uid, subscribe, importArchive, exportArchive, getLegacyState, setStorageScope, replaceState, clearMemory } from './store.js?v=6';
+import { loadState, getState, getStorageError, commit as commitLocal, uid, subscribe, importArchive, exportArchive, getLegacyState, setStorageScope, replaceState, clearMemory } from './store.js?v=7';
 import { mountBoard } from './board.js?v=3';
 import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=15';
 import { INVENTORY_CATEGORIES, RITUAL_ELEMENTS, RITUAL_CIRCLES, RITUAL_EXECUTIONS, RITUAL_RANGES, readCharacterAbilities, serializeCharacterAbilities, readCharacterInventory, serializeCharacterInventory, readCharacterDescription, serializeCharacterDescription, readCharacterRituals, serializeCharacterRituals } from './character-data.js?v=3';
 import { getClient, readProfile, signInWithNickname, requestAdminOperation, listProfiles, signOut } from './auth.js?v=2';
-import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=4';
+import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=5';
 
 const main = document.querySelector('#main');
 const appShell = document.querySelector('#app-shell');
@@ -24,6 +24,10 @@ let profileCache = [];
 let characterPlayerProfiles = [];
 let playerRefreshTimer = null;
 let playerRefreshPending = false;
+const SESSION_ATMOSPHERES = [
+  ['black-white', 'Preto e Branco'],
+  ['purple-red', 'Roxo e Vermelho']
+];
 loadState();
 let legacySnapshot = getLegacyState();
 
@@ -271,6 +275,8 @@ function renderPlayerExperience(data, route) {
   }
   const requested = route.name === 'personagem' ? ownedCharacters.find(character => character.id === route.id) : null;
   const character = requested || ownedCharacters[0];
+  const activeSession = (data.sessions || []).find(session => session.isLive && (character.campaignIds || []).includes(session.campaignId));
+  setAtmosphereTheme(activeSession?.atmosphere || 'purple-red');
   const sections = ['geral', 'pericias', 'habilidades', 'inventario', 'rituais', 'descricao'];
   const section = requested && sections.includes(route.section) ? route.section : 'geral';
   if (route.name !== 'personagem' || route.id !== character.id || route.section !== section) {
@@ -281,6 +287,12 @@ function renderPlayerExperience(data, route) {
     ? `<nav class="player-character-switcher" aria-label="Suas fichas">${ownedCharacters.map(item => `<a class="${item.id === character.id ? 'active' : ''}" href="#/personagem/${encodeURIComponent(item.id)}/geral">${esc(item.name || 'Personagem')}</a>`).join('')}</nav>`
     : '';
   main.innerHTML = `<div class="player-session-view"><div class="player-session-actions">${playerExitButton}</div>${switcher}${renderCharacterSheet(character, [], section, false, true)}</div>`;
+}
+
+function setAtmosphereTheme(theme) {
+  const normalized = SESSION_ATMOSPHERES.some(([value]) => value === theme) ? theme : 'purple-red';
+  document.documentElement.dataset.atmosphere = normalized;
+  window.dispatchEvent(new CustomEvent('pela-atmosphere-change', { detail: { theme: normalized } }));
 }
 
 function renderHome(data) {
@@ -669,7 +681,8 @@ function saveStructuredCharacterField(characterId, field, serializer, data, mess
 function sessionForm(s={},preselected='') {
   const campaigns=getState().campaigns.filter(mayManageCampaign);
   if(!campaigns.length){toast('Crie ou selecione uma campanha que você possa gerenciar antes de registrar uma sessão.','warning');return;}
-  openModal(s.id?'Editar sessão':'Nova sessão','O quadro de planejamento não é duplicado por sessão.',`<input type="hidden" name="id" value="${esc(s.id||'')}"><div class="form-grid"><div class="field"><label for="f-campaignId">Campanha *</label><select id="f-campaignId" name="campaignId" required>${campaigns.map(c=>`<option value="${esc(c.id)}" ${(s.campaignId||preselected)===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>${valueField('title','Título *',s.title||'','text','required maxlength="140"')}${valueField('date','Data e horário (opcionais)',s.date||'','datetime-local')}${textareaField('description','Descrição',s.description||'')}<div class="field"><label for="f-status">Estado</label><select id="f-status" name="status">${['Planejada','Realizada','Cancelada'].map(v=>`<option ${(s.status||'Planejada')===v?'selected':''}>${v}</option>`).join('')}</select></div>${textareaField('notes','Anotações',s.notes||'')}</div>`);
+  const atmosphereOptions=SESSION_ATMOSPHERES.map(([value,label])=>`<option value="${value}" ${(s.atmosphere||'purple-red')===value?'selected':''}>${label}</option>`).join('');
+  openModal(s.id?'Editar sessão':'Nova sessão','O quadro de planejamento não é duplicado por sessão.',`<input type="hidden" name="id" value="${esc(s.id||'')}"><div class="form-grid"><div class="field"><label for="f-campaignId">Campanha *</label><select id="f-campaignId" name="campaignId" required>${campaigns.map(c=>`<option value="${esc(c.id)}" ${(s.campaignId||preselected)===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>${valueField('title','Título *',s.title||'','text','required maxlength="140"')}${valueField('date','Data e horário (opcionais)',s.date||'','datetime-local')}<div class="field"><label for="f-atmosphere">Animação do fundo das fichas</label><select id="f-atmosphere" name="atmosphere" required>${atmosphereOptions}</select><small>A animação escolhida aparecerá para os jogadores durante esta sessão ao vivo.</small></div>${textareaField('description','Descrição',s.description||'')}<div class="field"><label for="f-status">Estado</label><select id="f-status" name="status">${['Planejada','Realizada','Cancelada'].map(v=>`<option ${(s.status||'Planejada')===v?'selected':''}>${v}</option>`).join('')}</select></div>${textareaField('notes','Anotações',s.notes||'')}</div>`);
 }
 
 function handleCreate(type,campaignId='') {
@@ -1012,7 +1025,7 @@ document.addEventListener('submit',event=>{
     const record={id:id||uid(),name:String(fd.get('name')||'').trim(),playerNote:String(fd.get('playerNote')||'').trim(),playerName,portrait,origin:String(fd.get('origin')||'').trim(),className:String(fd.get('className')||'').trim(),path:String(fd.get('path')||'').trim(),nex:String(fd.get('nex')||'').trim(),rank:String(fd.get('rank')||'').trim(),pv:String(fd.get('pv')||'').trim(),pvMax:String(fd.get('pvMax')||'').trim(),pe:String(fd.get('pe')||'').trim(),peMax:String(fd.get('peMax')||'').trim(),san:String(fd.get('san')||'').trim(),sanMax:String(fd.get('sanMax')||'').trim(),defense:String(fd.get('defense')||'').trim(),attributes,skills:String(fd.get('skills')||'').trim(),abilities:old?.abilities??'',inventory:old?.inventory??'',rituals:String(fd.get('rituals')||'').trim(),description:old?.description??'',progress:String(fd.get('progress')||'').trim(),notes:old?.notes??'',campaignIds,createdAt:old?.createdAt||now,updatedAt:now,ownerId,createdBy:old?.createdBy||currentUser.id};
     ok=commitAndSync(d=>{const index=d.characters.findIndex(x=>x.id===id);if(index>=0)d.characters[index]=record;else d.characters.push(record);});success=id?'Ficha atualizada.':'Ficha criada.';
   } else if(form.querySelector('[name="campaignId"]')) {
-    const old=getState().sessions.find(x=>x.id===id);const status=String(fd.get('status')||'Planejada');const record={id:id||uid(),campaignId:String(fd.get('campaignId')),title:String(fd.get('title')||'').trim(),date:String(fd.get('date')||''),description:String(fd.get('description')||'').trim(),status,isLive:old?.isLive===true&&status==='Planejada',notes:String(fd.get('notes')||'').trim(),createdAt:old?.createdAt||now,updatedAt:now,createdBy:old?.createdBy||currentUser.id};
+    const old=getState().sessions.find(x=>x.id===id);const status=String(fd.get('status')||'Planejada');const atmosphere=String(fd.get('atmosphere')||'purple-red');const record={id:id||uid(),campaignId:String(fd.get('campaignId')),title:String(fd.get('title')||'').trim(),date:String(fd.get('date')||''),description:String(fd.get('description')||'').trim(),status,isLive:old?.isLive===true&&status==='Planejada',atmosphere:SESSION_ATMOSPHERES.some(([value])=>value===atmosphere)?atmosphere:'purple-red',notes:String(fd.get('notes')||'').trim(),createdAt:old?.createdAt||now,updatedAt:now,createdBy:old?.createdBy||currentUser.id};
     if(!['Planejada','Realizada','Cancelada'].includes(record.status)){toast('Estado inválido.','error');return;}
     ok=commitAndSync(d=>{if(!d.campaigns.some(c=>c.id===record.campaignId))throw new Error('Campanha não encontrada.');const index=d.sessions.findIndex(x=>x.id===id);if(index>=0)d.sessions[index]=record;else d.sessions.push(record);});success=id?'Sessão atualizada.':'Sessão criada.';
   }

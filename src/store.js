@@ -2,6 +2,7 @@ const STORAGE_KEY = 'pela-realidade:arquivo:v1';
 const EMPTY = () => ({ version: 1, campaigns: [], characters: [], sessions: [], boards: {}, homebrew: { abilities: [], items: [], rituals: [] } });
 const ATTRIBUTES = ['Agilidade', 'Força', 'Intelecto', 'Presença', 'Vigor'];
 const INVENTORY_CATEGORIES = ['0', 'I', 'II', 'III', 'IV'];
+const SESSION_ATMOSPHERES = ['black-white', 'purple-red'];
 let state = EMPTY();
 let storageKey = STORAGE_KEY;
 let legacyState = EMPTY();
@@ -57,7 +58,7 @@ function normalize(value) {
     id: text(row.id || uid(), 128), campaignId: text(row.campaignId, 128), title: text(row.title, 140),
     date: text(row.date, 40), description: text(row.description),
     status: ['Planejada', 'Realizada', 'Cancelada'].includes(row.status) ? row.status : 'Planejada',
-    isLive: row.isLive === true,
+    isLive: row.isLive === true, atmosphere: SESSION_ATMOSPHERES.includes(row.atmosphere) ? row.atmosphere : 'purple-red',
     notes: text(row.notes), createdAt: text(row.createdAt, 80), updatedAt: text(row.updatedAt, 80),
     createdBy: text(row.createdBy, 128)
   }));

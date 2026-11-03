@@ -517,10 +517,11 @@ A aplicação estática fica em `index.html`, `styles.css` e `src/` e não exige
 - Ao entrar, jogadores aguardam em uma tela preta; com a sessão da campanha ativa, acessam somente suas próprias fichas, em modo de leitura. O restante da navegação e dos quadros fica oculto.
 - Quadros de planejamento e backup JSON continuam disponíveis para os perfis autorizados.
 - A página Homebrew permite cadastrar habilidades, itens e rituais reutilizáveis. Os botões de nova habilidade, novo item e novo ritual permitem selecionar um registro do catálogo; a cópia inserida na ficha recebe novo identificador e segue o fluxo normal de edição.
+- Cada sessão possui uma animação de fundo selecionável — “Preto e Branco” ou “Roxo e Vermelho”. Quando a sessão está ao vivo, o tema escolhido aparece atrás das fichas dos jogadores vinculados.
 
 ### Persistência, acesso e privacidade
 
-O Supabase é a fonte compartilhada dos registros; `localStorage` é usado como cache local. As tabelas são protegidas por RLS. A migração `supabase/migrations/20261013130000_live_player_session.sql` foi aplicada e verificada no projeto Supabase do deploy em 13/10/2026; ela adiciona o estado de sessão ativa e restringe jogadores ao período de sessão e às próprias fichas. A migração `supabase/migrations/20261103130000_homebrew_catalog.sql` cria o catálogo Homebrew e deve ser aplicada antes de usar sua sincronização remota. Para outros ambientes, execute as migrações antes de liberar esses fluxos. Veja `docs/DECISOES-TECNICAS.md` para o desenho técnico.
+O Supabase é a fonte compartilhada dos registros; `localStorage` é usado como cache local. As tabelas são protegidas por RLS. A migração `supabase/migrations/20261013130000_live_player_session.sql` foi aplicada e verificada no projeto Supabase do deploy em 13/10/2026; ela adiciona o estado de sessão ativa e restringe jogadores ao período de sessão e às próprias fichas. A migração `supabase/migrations/20261103130000_homebrew_catalog.sql` cria o catálogo Homebrew e `supabase/migrations/20261103150000_session_atmosphere.sql` adiciona o tema de animação às sessões; ambas devem ser aplicadas antes de usar a sincronização remota desses recursos. Para outros ambientes, execute as migrações antes de liberar esses fluxos. Veja `docs/DECISOES-TECNICAS.md` para o desenho técnico.
 
 ### Regras da ficha
 

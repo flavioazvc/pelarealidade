@@ -1,13 +1,18 @@
 const EMPTY = () => ({ version: 1, campaigns: [], characters: [], sessions: [], boards: {}, homebrew: { abilities: [], items: [], rituals: [] } });
 
 function fail(error, context) {
-  if (error) throw new Error(`${context}: ${error.message || 'erro remoto'}`);
+  if (error) {
+    const wrapped = new Error(`${context}: ${error.message || 'erro remoto'}`);
+    wrapped.code = error.code;
+    throw wrapped;
+  }
 }
 function array(value) { return Array.isArray(value) ? value : []; }
 function copy(value) { return structuredClone(value); }
 function equal(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 function indexById(rows) { return new Map(rows.map(row => [row.id, row])); }
 function isMissingHomebrewTable(error) { return error?.code === '42P01' || error?.code === 'PGRST205'; }
+function isMissingSessionAtmosphere(error) { return error?.code === '42703' || error?.code === 'PGRST204'; }
 let homebrewAvailable = true;
 
 export async function loadWorkspace(client, userId) {
@@ -52,7 +57,7 @@ export async function loadWorkspace(client, userId) {
   }));
   const sessions = (sessionResult.data || []).map(row => ({
     id: row.id, campaignId: row.campaign_id, title: row.title, date: row.session_at || '',
-    description: row.description || '', status: row.status, isLive: row.is_live === true, notes: row.notes || '',
+    description: row.description || '', status: row.status, isLive: row.is_live === true, atmosphere: ['black-white', 'purple-red'].includes(row.atmosphere) ? row.atmosphere : 'purple-red', notes: row.notes || '',
     createdAt: row.created_at, updatedAt: row.updated_at, createdBy: row.created_by
   }));
   const boards = {};
@@ -99,7 +104,7 @@ function sessionRow(item, userId) {
   return {
     id: item.id, campaign_id: item.campaignId, created_by: item.createdBy || userId,
     title: item.title, session_at: item.date || null, description: item.description || '',
-    status: item.status || 'Planejada', is_live: item.isLive === true, notes: item.notes || '',
+    status: item.status || 'Planejada', is_live: item.isLive === true, atmosphere: ['black-white', 'purple-red'].includes(item.atmosphere) ? item.atmosphere : 'purple-red', notes: item.notes || '',
     created_at: item.createdAt || new Date().toISOString(), updated_at: item.updatedAt || new Date().toISOString()
   };
 }
@@ -160,7 +165,13 @@ export async function syncWorkspace(client, user, previous, next) {
     .sort((left, right) => Number(left.isLive === true) - Number(right.isLive === true));
   await saveChangedRows(client, 'campaigns', campaignsToSave.map(row => campaignRow(row, user.id)), oldCampaigns.keys(), ['id']);
   await saveChangedRows(client, 'characters', charactersToSave.map(row => characterRow(row, user.id)), oldCharacters.keys(), ['id']);
-  await saveChangedRows(client, 'sessions', sessionsToSave.map(row => sessionRow(row, user.id)), oldSessions.keys(), ['id']);
+  const sessionRows = sessionsToSave.map(row => sessionRow(row, user.id));
+  try {
+    await saveChangedRows(client, 'sessions', sessionRows, oldSessions.keys(), ['id']);
+  } catch (error) {
+    if (!isMissingSessionAtmosphere(error)) throw error;
+    await saveChangedRows(client, 'sessions', sessionRows.map(({ atmosphere, ...row }) => row), oldSessions.keys(), ['id']);
+  }
   if (homebrewAvailable) {
     const homebrewToSave = [];
     for (const kind of ['abilities', 'items', 'rituals']) {

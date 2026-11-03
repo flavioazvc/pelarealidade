@@ -4,22 +4,22 @@ const context = canvas?.getContext('2d', { alpha: false, desynchronized: true })
 if (canvas && context) {
   const root = document.documentElement;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const mode = root.dataset.atmosphere === 'rift' ? 'rift' : 'veil';
+  let mode = ['black-white', 'purple-red'].includes(root.dataset.atmosphere) ? root.dataset.atmosphere : 'purple-red';
   const palettes = {
-    veil: {
-      base: ['#080a11', '#0d0b13', '#080a10'],
-      fog: [[69, 112, 183], [41, 150, 158], [134, 73, 170], [174, 59, 99], [180, 112, 59], [97, 91, 143]],
-      glow: 'rgba(115, 154, 255, .75)',
-      flash: 'rgba(213, 224, 255, .8)'
+    'black-white': {
+      base: ['#030304', '#0b0b0d', '#020203'],
+      fog: [[255, 255, 255], [220, 224, 230], [172, 178, 188], [246, 246, 242], [126, 132, 142]],
+      glow: 'rgba(255, 255, 255, .75)',
+      flash: 'rgba(255, 255, 255, .9)'
     },
-    rift: {
-      base: ['#090910', '#110b14', '#080a10'],
-      fog: [[112, 79, 181], [39, 123, 159], [186, 59, 76], [193, 111, 50], [128, 74, 133], [119, 143, 158]],
-      glow: 'rgba(227, 124, 179, .7)',
-      flash: 'rgba(255, 220, 231, .82)'
+    'purple-red': {
+      base: ['#08040f', '#140817', '#08030c'],
+      fog: [[127, 57, 183], [161, 66, 205], [93, 43, 147], [205, 40, 67], [145, 38, 57], [91, 33, 112]],
+      glow: 'rgba(239, 65, 83, .78)',
+      flash: 'rgba(255, 105, 120, .86)'
     }
   };
-  const palette = palettes[mode];
+  let palette = palettes[mode];
   const random = Math.random;
   const clouds = Array.from({ length: 15 }, (_, index) => ({
     x: ((index % 5) + 0.2 + random() * 0.6) / 5,
@@ -43,6 +43,14 @@ if (canvas && context) {
   let resizeTimer = 0;
   let strike = null;
   let nextStrikeAt = 0;
+
+  function setTheme(nextTheme) {
+    const next = ['black-white', 'purple-red'].includes(nextTheme) ? nextTheme : 'purple-red';
+    mode = next;
+    palette = palettes[mode];
+    root.dataset.atmosphere = next;
+    paint(performance.now() / 1000, performance.now(), false);
+  }
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
@@ -228,5 +236,6 @@ if (canvas && context) {
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(resize, 140);
   }, { passive: true });
+  window.addEventListener('pela-atmosphere-change', event => setTheme(event.detail?.theme));
   window.addEventListener('pagehide', stop, { once: true });
 }

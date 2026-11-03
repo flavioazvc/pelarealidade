@@ -897,19 +897,22 @@ main { min-height: calc(100vh - 76px); }
 
 /* Modo isolado dos jogadores: tela preta até uma sessão ativa, depois apenas a própria ficha. */
 html[data-player-mode="waiting"], html[data-player-mode="active"], html[data-player-mode="waiting"] body, html[data-player-mode="active"] body { min-height: 100vh; background: #000 !important; }
-html[data-player-mode="waiting"] .paranormal-atmosphere, html[data-player-mode="active"] .paranormal-atmosphere,
+html[data-player-mode="active"] .paranormal-atmosphere { z-index: 0; }
+html[data-player-mode="waiting"] .paranormal-atmosphere,
 html[data-player-mode="waiting"] .topbar, html[data-player-mode="active"] .topbar,
 html[data-player-mode="waiting"] .toast-region, html[data-player-mode="active"] .toast-region,
 html[data-player-mode="waiting"] #modal, html[data-player-mode="active"] #modal,
 html[data-player-mode="waiting"] .skip-link, html[data-player-mode="active"] .skip-link { display: none !important; }
-html[data-player-mode="waiting"] #app-shell, html[data-player-mode="active"] #app-shell { display: block !important; min-height: 100vh; background: #000; }
-html[data-player-mode="waiting"] #app-shell > main, html[data-player-mode="active"] #app-shell > main { width: 100%; min-height: 100vh; margin: 0; padding: 0; background: #000; }
+html[data-player-mode="waiting"] #app-shell, html[data-player-mode="active"] #app-shell { display: block !important; min-height: 100vh; background: transparent; }
+html[data-player-mode="active"] #app-shell { position: relative; z-index: 1; }
+html[data-player-mode="waiting"] #app-shell > main, html[data-player-mode="active"] #app-shell > main { width: 100%; min-height: 100vh; margin: 0; padding: 0; background: transparent; }
 html[data-player-mode="waiting"] #app-shell > main { display: grid; place-items: center; }
 html[data-player-mode="active"] #app-shell > main { display: block; }
 .player-wait-screen { display: grid; place-items: center; width: 100%; min-height: 100vh; padding: 24px; background: #000; color: #f4f2f2; text-align: center; }
 .player-wait-screen p { margin: 0; font: 500 clamp(18px, 3vw, 24px)/1.5 var(--sans); letter-spacing: .01em; }
 .player-wait-screen--notice p { color: #c8c0c5; font-size: 16px; }
 .player-session-view { min-height: 100vh; background: #000; }
+.player-session-view { position: relative; z-index: 1; background: transparent; }
 .player-sheet { width: min(1500px, calc(100% - 36px)); min-height: 100vh; margin: 0 auto; padding: 22px 0 36px; }
 .player-sheet .sheet-toolbar { display: none; }
 .player-character-switcher { display: flex; flex-wrap: wrap; gap: 8px; width: min(1500px, calc(100% - 36px)); margin: 0 auto; padding: 18px 0 0; }
