@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'pela-realidade:arquivo:v1';
-const EMPTY = () => ({ version: 1, campaigns: [], characters: [], sessions: [], boards: {} });
+const EMPTY = () => ({ version: 1, campaigns: [], characters: [], sessions: [], boards: {}, homebrew: { abilities: [], items: [], rituals: [] } });
 const ATTRIBUTES = ['Agilidade', 'Força', 'Intelecto', 'Presença', 'Vigor'];
+const INVENTORY_CATEGORIES = ['0', 'I', 'II', 'III', 'IV'];
 let state = EMPTY();
 let storageKey = STORAGE_KEY;
 let legacyState = EMPTY();
@@ -11,6 +12,24 @@ function text(value, limit = 20000) { return String(value ?? '').slice(0, limit)
 function numeric(value, fallback, min, max) { const n = Number(value); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback; }
 function color(value, fallback = '#26282a') { return /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : fallback; }
 function array(value) { return Array.isArray(value) ? value : []; }
+
+function normalizeHomebrew(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const abilities = array(source.abilities).filter(item => item && typeof item === 'object').slice(0, 500).map(item => ({
+    id: text(item.id || uid(), 128), name: text(item.name, 120), description: text(item.description, 20000)
+  }));
+  const items = array(source.items).filter(item => item && typeof item === 'object').slice(0, 500).map(item => ({
+    id: text(item.id || uid(), 128), name: text(item.name, 120), category: INVENTORY_CATEGORIES.includes(String(item.category)) ? String(item.category) : '0',
+    spaces: Number.isFinite(Number(item.spaces)) ? Number(item.spaces) : 0, description: text(item.description, 20000)
+  }));
+  const rituals = array(source.rituals).filter(item => item && typeof item === 'object').slice(0, 500).map(item => ({
+    id: text(item.id || uid(), 128), name: text(item.name, 120), element: text(item.element, 40), circle: text(item.circle, 20),
+    execution: text(item.execution, 40), range: text(item.range, 40), target: text(item.target, 300), duration: text(item.duration, 300),
+    resistance: text(item.resistance, 300), image: text(item.image, 2000), description: text(item.description, 20000),
+    discente: text(item.discente, 10000), discenteCost: text(item.discenteCost, 40), trueEffect: text(item.trueEffect, 10000), trueCost: text(item.trueCost, 40)
+  }));
+  return { abilities, items, rituals };
+}
 
 function normalize(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return EMPTY();
@@ -64,7 +83,7 @@ function normalize(value) {
       boards[key] = { campaignId: key, cards, paths, links, updatedAt: text(raw.updatedAt, 80) };
     }
   }
-  return { version: 1, campaigns, characters, sessions, boards };
+  return { version: 1, campaigns, characters, sessions, boards, homebrew: normalizeHomebrew(value.homebrew) };
 }
 
 export function loadState() {
@@ -153,5 +172,6 @@ export function importArchive(json) {
     next.characters = parsed.characters;
     next.sessions = parsed.sessions;
     next.boards = parsed.boards;
+    next.homebrew = parsed.homebrew;
   });
 }

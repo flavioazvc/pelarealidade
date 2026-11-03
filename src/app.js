@@ -1,9 +1,9 @@
-import { loadState, getState, getStorageError, commit as commitLocal, uid, subscribe, importArchive, exportArchive, getLegacyState, setStorageScope, replaceState, clearMemory } from './store.js?v=5';
+import { loadState, getState, getStorageError, commit as commitLocal, uid, subscribe, importArchive, exportArchive, getLegacyState, setStorageScope, replaceState, clearMemory } from './store.js?v=6';
 import { mountBoard } from './board.js?v=3';
 import { renderCharacterSheet, getCharacterResource, getCharacterResourceFormValues, cycleSkillTraining } from './character-sheet.js?v=15';
 import { INVENTORY_CATEGORIES, RITUAL_ELEMENTS, RITUAL_CIRCLES, RITUAL_EXECUTIONS, RITUAL_RANGES, readCharacterAbilities, serializeCharacterAbilities, readCharacterInventory, serializeCharacterInventory, readCharacterDescription, serializeCharacterDescription, readCharacterRituals, serializeCharacterRituals } from './character-data.js?v=3';
 import { getClient, readProfile, signInWithNickname, requestAdminOperation, listProfiles, signOut } from './auth.js?v=1';
-import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=2';
+import { loadWorkspace, syncWorkspace, workspaceIsEmpty, listCampaignMembers, replaceCampaignMembers } from './cloud-store.js?v=3';
 
 const main = document.querySelector('#main');
 const appShell = document.querySelector('#app-shell');
@@ -231,7 +231,7 @@ function render() {
   createMenu.hidden=true; createToggle.setAttribute('aria-expanded','false');
   const data=getState();
   const storageError=getStorageError();
-  if (r.name==='acessos' && currentProfile.role!=='admin') { location.hash='#/'; return; }
+  if (['acessos', 'homebrew'].includes(r.name) && currentProfile.role==='player') { location.hash='#/'; return; }
   if (r.name==='planejamento' && r.id) { const campaign=data.campaigns.find(item=>item.id===r.id); activeBoardDispose=mountBoard(main,r.id,toast,{getState,commit:commitAndSync,uid,canEdit:mayManageCampaign(campaign)}); }
   else if (r.name==='home') main.innerHTML=renderHome(data);
   else if (r.name==='campanhas') main.innerHTML=renderCampaigns(data);
@@ -240,6 +240,7 @@ function render() {
   else if (r.name==='personagem') main.innerHTML=renderCharacterDetail(data,r.id,r.section);
   else if (r.name==='sessoes') main.innerHTML=renderSessions(data);
   else if (r.name==='planejamento') main.innerHTML=renderPlanning(data);
+  else if (r.name==='homebrew') main.innerHTML=renderHomebrew(data);
   else if (r.name==='acessos') main.innerHTML=renderAccesses(profileCache);
   else main.innerHTML=empty('Arquivo não encontrado','O endereço solicitado não corresponde a uma seção disponível.',`<a href="#/" class="button">Ir para o início</a>`);
   applyRoleControls();
@@ -250,7 +251,7 @@ function render() {
   if (r.name==='acessos') void refreshProfiles();
   const page=main.querySelector('.page'); if(page) page.setAttribute('aria-label',document.title);
 }
-function navRoute(r) { if(r.name==='campanha') return 'campaigns'; if(r.name==='personagem') return 'characters'; return ({home:'home',campanhas:'campaigns',personagens:'characters',sessoes:'sessions',planejamento:'planning',acessos:'accesses'})[r.name] || ''; }
+function navRoute(r) { if(r.name==='campanha') return 'campaigns'; if(r.name==='personagem') return 'characters'; return ({home:'home',campanhas:'campaigns',personagens:'characters',sessoes:'sessions',planejamento:'planning',homebrew:'homebrew',acessos:'accesses'})[r.name] || ''; }
 
 function renderPlayerExperience(data, route) {
   const displayName = String(currentProfile?.display_name || '').trim() || 'jogador';
@@ -301,6 +302,27 @@ function renderHome(data) {
       </section>
       <section class="home-maintenance-panel"><h2>Logins e senhas</h2>${currentProfile.role==='admin'?'<p>Gerencie nicknames, perfis e redefinições de senha.</p><a class="button button-primary" href="#/acessos">Gerenciar acessos →</a>':'<p>Gerenciamento restrito ao administrador.</p>'}</section>
     </div>
+  </section>`;
+}
+
+function homebrewCard(item, kind) {
+  const details = kind === 'abilities'
+    ? item.description
+    : kind === 'items'
+      ? `Categoria ${item.category} · ${formatInventorySpaces(item.spaces)} ${Number(item.spaces) === 1 ? 'espaço' : 'espaços'}${item.description ? ` · ${item.description}` : ''}`
+      : `${item.element} · ${item.circle}${item.description ? ` · ${item.description}` : ''}`;
+  return `<article class="homebrew-card"><div><h3>${esc(item.name || 'Sem nome')}</h3><p>${esc(details || 'Sem descrição registrada.')}</p></div><div class="homebrew-card-actions"><button class="button button-sm" type="button" data-action="edit-homebrew" data-kind="${kind}" data-item="${esc(item.id)}">Editar</button><button class="button button-sm button-danger" type="button" data-action="delete-homebrew" data-kind="${kind}" data-item="${esc(item.id)}">Excluir</button></div></article>`;
+}
+
+function renderHomebrew(data) {
+  const groups = [
+    ['abilities', 'Habilidades', 'Registre habilidades que você reutiliza em várias fichas.', '＋ Nova habilidade'],
+    ['items', 'Itens', 'Mantenha itens recorrentes prontos para inserir no inventário.', '＋ Novo item'],
+    ['rituals', 'Rituais', 'Cadastre rituais completos para agilizar a criação das fichas.', '＋ Novo ritual'],
+  ];
+  return `<section class="page homebrew-page"><div class="page-head"><div><h1>Homebrew</h1><p class="lede">Um catálogo pessoal de habilidades, itens e rituais reutilizáveis.</p></div></div>
+    <div class="homebrew-intro">Os elementos adicionados a uma ficha viram uma cópia normal. Depois disso, editar ou excluir o catálogo não altera o que já foi inserido na ficha.</div>
+    <div class="homebrew-groups">${groups.map(([kind, title, description, action]) => `<section class="panel homebrew-group"><div class="panel-heading"><div><h2>${title}</h2><p>${description}</p></div><button class="button button-sm button-primary" data-action="add-homebrew" data-kind="${kind}">${action}</button></div>${data.homebrew?.[kind]?.length ? `<div class="homebrew-list">${data.homebrew[kind].slice().sort(byUpdated).map(item => homebrewCard(item, kind)).join('')}</div>` : empty(`Nenhum item em ${title.toLocaleLowerCase('pt-BR')}`, 'Adicione um registro para reutilizá-lo nas fichas.')}</section>`).join('')}</div>
   </section>`;
 }
 
@@ -550,6 +572,35 @@ async function characterForm(ch={},preselected='') {
   );
 }
 
+function formatInventorySpaces(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? new Intl.NumberFormat('pt-BR', { useGrouping: false, maximumFractionDigits: 15 }).format(number) : '0';
+}
+
+function homebrewForm(kind, item = null) {
+  const id = item?.id || '';
+  const heading = kind === 'abilities' ? 'habilidade' : kind === 'items' ? 'item' : 'ritual';
+  let fields = '';
+  if (kind === 'abilities') fields = `${valueField('name', 'Nome da habilidade', item?.name || '', 'text', 'required maxlength="120"')}${sheetTextareaField('description', 'Descrição', item?.description || '', 8000)}`;
+  if (kind === 'items') {
+    const options = INVENTORY_CATEGORIES.map(category => `<option value="${esc(category)}" ${String(item?.category || '0') === category ? 'selected' : ''}>${category === '0' ? '0 — comum' : category}</option>`).join('');
+    fields = `${valueField('name', 'Nome do item', item?.name || '', 'text', 'required maxlength="120"')}<div class="field"><label for="f-category">Categoria</label><select id="f-category" name="category" required>${options}</select></div>${valueField('spaces', 'Espaços', item?.spaces ?? 0, 'number', 'required step="any"')}${sheetTextareaField('description', 'Descrição', item?.description || '', 5000)}`;
+  }
+  if (kind === 'rituals') {
+    const options = (name, label, values, selected) => `<div class="field"><label for="f-${name}">${label}</label><select id="f-${name}" name="${name}" required>${values.map(value => `<option value="${esc(value)}" ${selected === value ? 'selected' : ''}>${esc(value)}</option>`).join('')}</select></div>`;
+    const variants = `<div class="ritual-variant-form"><h3>Discente · opcional</h3>${valueField('discenteCost', 'Custo adicional em PE', item?.discenteCost || '', 'number', 'min="0" step="1"')}${sheetTextareaField('discente', 'Efeito discente', item?.discente || '', 10000)}</div><div class="ritual-variant-form"><h3>Verdadeiro · opcional</h3>${valueField('trueCost', 'Custo adicional em PE', item?.trueCost || '', 'number', 'min="0" step="1"')}${sheetTextareaField('trueEffect', 'Efeito verdadeiro', item?.trueEffect || '', 10000)}</div>`;
+    fields = `${valueField('name', 'Nome do ritual', item?.name || '', 'text', 'required maxlength="120"')}${options('element', 'Elemento', RITUAL_ELEMENTS, item?.element || RITUAL_ELEMENTS[0])}${options('circle', 'Círculo', RITUAL_CIRCLES, item?.circle || RITUAL_CIRCLES[0])}${options('execution', 'Execução', RITUAL_EXECUTIONS, item?.execution || RITUAL_EXECUTIONS[0])}${options('range', 'Alcance', RITUAL_RANGES, item?.range || RITUAL_RANGES[0])}${valueField('target', 'Alvo', item?.target || '', 'text', 'required maxlength="300"')}${valueField('duration', 'Duração', item?.duration || '', 'text', 'required maxlength="300"')}${valueField('resistance', 'Resistência', item?.resistance || '', 'text', 'required maxlength="300"')}${valueField('image', 'Imagem (URL opcional)', item?.image || '', 'url', 'maxlength="2000"')}${sheetTextareaField('description', 'Efeito base', item?.description || '', 10000)}${variants}`;
+  }
+  openModal(id ? `Editar ${heading} Homebrew` : `Novo ${heading} Homebrew`, 'Este registro ficará disponível para reutilização nas fichas.', `<input type="hidden" name="kind" value="${kind}"><input type="hidden" name="itemId" value="${esc(id)}"><div class="form-grid${kind === 'rituals' ? ' ritual-form-grid' : ''}">${fields}</div>`, `Salvar ${heading}`, 'homebrew-form');
+}
+
+function chooseHomebrew(character, kind) {
+  const labels = { abilities: ['habilidade', 'habilidades'], items: ['item', 'itens'], rituals: ['ritual', 'rituais'] };
+  const [singular, plural] = labels[kind];
+  const entries = getState().homebrew?.[kind] || [];
+  openModal(`Adicionar ${singular}`, `Escolha um ${singular} do Homebrew ou crie um novo registro.`, `<div class="homebrew-picker-actions"><button class="button button-primary" type="button" data-action="new-character-entry" data-character="${esc(character.id)}" data-kind="${kind}">＋ Criar ${singular}</button><a class="button" href="#/homebrew" data-action="close-modal">Gerenciar Homebrew</a></div><div class="homebrew-picker-list">${entries.length ? entries.map(item => `<button class="homebrew-picker-item" type="button" data-action="use-homebrew" data-character="${esc(character.id)}" data-kind="${kind}" data-item="${esc(item.id)}"><strong>${esc(item.name || `Sem nome`)}</strong><span>${esc(kind === 'items' ? `Categoria ${item.category} · ${formatInventorySpaces(item.spaces)} espaços` : kind === 'rituals' ? `${item.element} · ${item.circle}` : item.description || 'Sem descrição')}</span></button>`).join('') : `<p class="sheet-empty-copy">Nenhum registro em ${plural}. Crie o primeiro agora.</p>`}</div>`);
+}
+
 function abilityForm(character,item=null,itemId='') {
   const id=itemId||item?.id||'';
   const deleteButton=id?`<div class="ability-form-delete-row"><button class="button button-sm button-danger" type="button" data-action="delete-ability" data-id="${esc(character.id)}" data-item="${esc(id)}">Excluir habilidade</button></div>`:'';
@@ -623,6 +674,22 @@ function handleCreate(type,campaignId='') {
   else if(type==='board') { const data=getState(); if(!data.campaigns.length){toast('Crie uma campanha antes de abrir um quadro.','warning');return;} location.hash=data.campaigns.length===1?`#/planejamento/${encodeURIComponent(data.campaigns[0].id)}`:'#/planejamento'; }
 }
 
+function createCharacterEntryFromHomebrew(characterId, kind, item) {
+  const copy = structuredClone(item);
+  delete copy.createdAt; delete copy.updatedAt;
+  copy.id = uid();
+  if (kind === 'abilities') {
+    const stored = readCharacterAbilities(getState().characters.find(character => character.id === characterId));
+    saveStructuredCharacterField(characterId, 'abilities', serializeCharacterAbilities, { ...stored, items: [...stored.items, copy] }, 'Habilidade adicionada à ficha.', true);
+  } else if (kind === 'items') {
+    const stored = readCharacterInventory(getState().characters.find(character => character.id === characterId));
+    saveStructuredCharacterField(characterId, 'inventory', serializeCharacterInventory, { ...stored, items: [...stored.items, copy] }, 'Item adicionado à ficha.', true);
+  } else {
+    const stored = readCharacterRituals(getState().characters.find(character => character.id === characterId));
+    saveStructuredCharacterField(characterId, 'rituals', serializeCharacterRituals, { ...stored, items: [...stored.items, copy] }, 'Ritual adicionado à ficha.', true);
+  }
+}
+
 document.addEventListener('click',event=>{
   const create=event.target.closest('[data-create]'); if(create){event.preventDefault(); handleCreate(create.dataset.create,create.dataset.campaign||'');return;}
   if(event.target.closest('#create-toggle')){createMenu.hidden=!createMenu.hidden;createToggle.setAttribute('aria-expanded',String(!createMenu.hidden));return;}
@@ -630,6 +697,25 @@ document.addEventListener('click',event=>{
   const button=event.target.closest('[data-action]'); if(!button)return;
   if(createMenu.contains(button)){createMenu.hidden=true;createToggle.setAttribute('aria-expanded','false');}
   const action=button.dataset.action, data=getState(), id=button.dataset.id;
+  if(action==='add-homebrew'){if(currentProfile?.role!=='admin'&&currentProfile?.role!=='master')return;homebrewForm(button.dataset.kind);return;}
+  if(action==='edit-homebrew'){
+    const kind=button.dataset.kind, item=(data.homebrew?.[kind]||[]).find(entry=>entry.id===button.dataset.item);
+    if(item)homebrewForm(kind,item);return;
+  }
+  if(action==='delete-homebrew'){
+    const kind=button.dataset.kind, item=(data.homebrew?.[kind]||[]).find(entry=>entry.id===button.dataset.item);
+    if(!item||!confirm(`Excluir “${item.name || 'sem nome'}” do Homebrew? As cópias já adicionadas às fichas serão preservadas.`))return;
+    const ok=commitAndSync(state=>{state.homebrew[kind]=state.homebrew[kind].filter(entry=>entry.id!==item.id);});
+    if(ok){toast('Registro Homebrew excluído.');render();}else toast('Não foi possível excluir o registro Homebrew.','error');return;
+  }
+  if(action==='new-character-entry'){
+    const character=data.characters.find(item=>item.id===button.dataset.character);if(!character||!mayManageCharacter(character))return;modal.close();
+    if(button.dataset.kind==='abilities')abilityForm(character);else if(button.dataset.kind==='items')inventoryItemForm(character);else ritualForm(character);return;
+  }
+  if(action==='use-homebrew'){
+    const character=data.characters.find(item=>item.id===button.dataset.character),kind=button.dataset.kind,item=(data.homebrew?.[kind]||[]).find(entry=>entry.id===button.dataset.item);
+    if(!character||!item||!mayManageCharacter(character))return;createCharacterEntryFromHomebrew(character.id,kind,item);return;
+  }
   if(action==='adjust-resource'){
     const character=data.characters.find(item=>item.id===id);const key=button.dataset.resource;const resource=character&&getCharacterResource(character,key);
     if(!character||!['pv','san','pe'].includes(key)||!resource?.configured)return;
@@ -650,7 +736,7 @@ document.addEventListener('click',event=>{
   }
   if(action==='add-ritual'){
     const character=data.characters.find(item=>item.id===id);
-    if(character&&mayManageCharacter(character))ritualForm(character);
+    if(character&&mayManageCharacter(character))chooseHomebrew(character,'rituals');
     return;
   }
   if(action==='convert-legacy-ritual'){
@@ -678,7 +764,7 @@ document.addEventListener('click',event=>{
   }
   if(action==='add-ability'){
     const character=data.characters.find(item=>item.id===id);
-    if(character&&mayManageCharacter(character))abilityForm(character);
+    if(character&&mayManageCharacter(character))chooseHomebrew(character,'abilities');
     return;
   }
   if(action==='edit-ability'){
@@ -704,7 +790,7 @@ document.addEventListener('click',event=>{
   }
   if(action==='add-inventory-item'){
     const character=data.characters.find(item=>item.id===id);
-    if(character&&mayManageCharacter(character))inventoryItemForm(character);
+    if(character&&mayManageCharacter(character))chooseHomebrew(character,'items');
     return;
   }
   if(action==='edit-inventory-item'){
@@ -801,6 +887,24 @@ document.addEventListener('submit',async event=>{
 
 document.addEventListener('submit',event=>{
   const form=event.target;
+  if(form.id==='homebrew-form'){
+    event.preventDefault();if(!form.reportValidity())return;
+    const fd=new FormData(form),kind=String(fd.get('kind')||''),itemId=String(fd.get('itemId')||''),now=new Date().toISOString();
+    if(!['abilities','items','rituals'].includes(kind))return;
+    let record={id:itemId||uid(),name:String(fd.get('name')||'').trim(),updatedAt:now};
+    if(kind==='abilities')record.description=String(fd.get('description')||'');
+    if(kind==='items')record={...record,category:String(fd.get('category')||'0'),spaces:Number(fd.get('spaces')),description:String(fd.get('description')||'')};
+    if(kind==='rituals'){
+      const element=String(fd.get('element')||''),circle=String(fd.get('circle')||''),execution=String(fd.get('execution')||''),range=String(fd.get('range')||'');
+      const image=String(fd.get('image')||'').trim();
+      if(!RITUAL_ELEMENTS.includes(element)||!RITUAL_CIRCLES.includes(circle)||!RITUAL_EXECUTIONS.includes(execution)||!RITUAL_RANGES.includes(range)){toast('Selecione opções válidas para o ritual.','error');return;}
+      if(image&&!validImageUrl(image)){toast('A imagem precisa usar uma URL HTTP ou HTTPS válida.','error');return;}
+      record={...record,element,circle,execution,range,target:String(fd.get('target')||'').trim(),duration:String(fd.get('duration')||'').trim(),resistance:String(fd.get('resistance')||'').trim(),image,description:String(fd.get('description')||''),discente:String(fd.get('discente')||''),discenteCost:String(fd.get('discenteCost')||'').trim(),trueEffect:String(fd.get('trueEffect')||''),trueCost:String(fd.get('trueCost')||'').trim()};
+    }
+    const ok=commitAndSync(state=>{const list=state.homebrew[kind]||[];const index=list.findIndex(item=>item.id===record.id);if(index>=0)list[index]={...list[index],...record};else list.push(record);});
+    if(ok){modal.close();toast(itemId?'Registro Homebrew atualizado.':'Registro Homebrew criado.');render();}else toast('Não foi possível salvar o registro Homebrew.','error');
+    return;
+  }
   if(['ritual-form','ability-form','inventory-item-form','character-description-form','inventory-limits-form'].includes(form.id)){
     event.preventDefault();if(!form.reportValidity())return;
     const fd=new FormData(form);

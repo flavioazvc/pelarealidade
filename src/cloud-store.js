@@ -1,4 +1,4 @@
-const EMPTY = () => ({ version: 1, campaigns: [], characters: [], sessions: [], boards: {} });
+const EMPTY = () => ({ version: 1, campaigns: [], characters: [], sessions: [], boards: {}, homebrew: { abilities: [], items: [], rituals: [] } });
 
 function fail(error, context) {
   if (error) throw new Error(`${context}: ${error.message || 'erro remoto'}`);
@@ -9,13 +9,14 @@ function equal(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 function indexById(rows) { return new Map(rows.map(row => [row.id, row])); }
 
 export async function loadWorkspace(client, userId) {
-  const [campaignResult, memberResult, characterResult, associationResult, sessionResult, boardResult] = await Promise.all([
+  const [campaignResult, memberResult, characterResult, associationResult, sessionResult, boardResult, homebrewResult] = await Promise.all([
     client.from('campaigns').select('*').order('updated_at', { ascending: false }),
     client.from('campaign_members').select('campaign_id, user_id, role'),
     client.from('characters').select('*').order('updated_at', { ascending: false }),
     client.from('character_campaigns').select('character_id, campaign_id'),
     client.from('sessions').select('*').order('updated_at', { ascending: false }),
-    client.from('planning_boards').select('campaign_id, payload, updated_at')
+    client.from('planning_boards').select('campaign_id, payload, updated_at'),
+    client.from('homebrew_entries').select('id, kind, payload, created_at, updated_at').order('updated_at', { ascending: false })
   ]);
   fail(campaignResult.error, 'Campanhas');
   fail(memberResult.error, 'Participantes');
@@ -23,6 +24,7 @@ export async function loadWorkspace(client, userId) {
   fail(associationResult.error, 'Vínculos de personagens');
   fail(sessionResult.error, 'Sessões');
   fail(boardResult.error, 'Quadros');
+  if (homebrewResult.error && homebrewResult.error.code !== '42P01') fail(homebrewResult.error, 'Homebrew');
 
   const membership = new Map((memberResult.data || [])
     .filter(row => row.user_id === userId)
@@ -59,12 +61,17 @@ export async function loadWorkspace(client, userId) {
       updatedAt: row.updated_at
     };
   }
-  return { ...EMPTY(), campaigns, characters, sessions, boards };
+  const homebrew = { abilities: [], items: [], rituals: [] };
+  for (const row of homebrewResult.data || []) {
+    if (homebrew[row.kind]) homebrew[row.kind].push({ ...(row.payload || {}), id: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
+  }
+  return { ...EMPTY(), campaigns, characters, sessions, boards, homebrew };
 }
 
 export function workspaceIsEmpty(state) {
   return !state.campaigns.length && !state.characters.length && !state.sessions.length
-    && !Object.keys(state.boards || {}).length;
+    && !Object.keys(state.boards || {}).length
+    && !Object.values(state.homebrew || {}).some(items => items.length);
 }
 
 function campaignRow(item, userId) {
@@ -99,6 +106,10 @@ function boardRow(campaignId, board) {
     payload: { cards: array(board.cards), paths: array(board.paths), links: array(board.links) },
     updated_at: board.updatedAt || new Date().toISOString()
   };
+}
+function homebrewRow(item, kind, userId) {
+  const { id, createdAt, updatedAt, ...payload } = item;
+  return { id, owner_id: userId, kind, payload, created_at: createdAt || new Date().toISOString(), updated_at: updatedAt || new Date().toISOString() };
 }
 async function insertRows(client, table, rows) {
   if (!rows.length) return;
@@ -136,6 +147,8 @@ export async function syncWorkspace(client, user, previous, next) {
   const newCharacters = indexById(next.characters || []);
   const oldSessions = indexById(previous.sessions || []);
   const newSessions = indexById(next.sessions || []);
+  const oldHomebrew = new Map([...(previous.homebrew?.abilities || []), ...(previous.homebrew?.items || []), ...(previous.homebrew?.rituals || [])].map(row => [row.id, row]));
+  const newHomebrew = new Map([...(next.homebrew?.abilities || []), ...(next.homebrew?.items || []), ...(next.homebrew?.rituals || [])].map(row => [row.id, row]));
 
   const campaignsToSave = [...newCampaigns.values()].filter(row => !equal(oldCampaigns.get(row.id), row));
   const charactersToSave = [...newCharacters.values()].filter(row => !equal(oldCharacters.get(row.id), row));
@@ -145,6 +158,11 @@ export async function syncWorkspace(client, user, previous, next) {
   await saveChangedRows(client, 'campaigns', campaignsToSave.map(row => campaignRow(row, user.id)), oldCampaigns.keys(), ['id']);
   await saveChangedRows(client, 'characters', charactersToSave.map(row => characterRow(row, user.id)), oldCharacters.keys(), ['id']);
   await saveChangedRows(client, 'sessions', sessionsToSave.map(row => sessionRow(row, user.id)), oldSessions.keys(), ['id']);
+  const homebrewToSave = [];
+  for (const kind of ['abilities', 'items', 'rituals']) {
+    for (const row of next.homebrew?.[kind] || []) if (!equal(oldHomebrew.get(row.id), row)) homebrewToSave.push(homebrewRow(row, kind, user.id));
+  }
+  await saveChangedRows(client, 'homebrew_entries', homebrewToSave, oldHomebrew.keys(), ['id']);
 
   const oldLinks = new Set();
   const newLinks = new Set();
@@ -170,6 +188,7 @@ export async function syncWorkspace(client, user, previous, next) {
   }
   for (const id of oldSessions.keys()) if (!newSessions.has(id)) await removeBy(client, 'sessions', 'id', id);
   for (const id of oldCharacters.keys()) if (!newCharacters.has(id)) await removeBy(client, 'characters', 'id', id);
+  for (const id of oldHomebrew.keys()) if (!newHomebrew.has(id)) await removeBy(client, 'homebrew_entries', 'id', id);
   for (const id of Object.keys(oldBoards)) if (!(id in newBoards)) await removeBy(client, 'planning_boards', 'campaign_id', id);
   for (const id of oldCampaigns.keys()) if (!newCampaigns.has(id)) await removeBy(client, 'campaigns', 'id', id);
 }

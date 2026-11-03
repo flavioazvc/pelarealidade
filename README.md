@@ -516,10 +516,11 @@ A aplicação estática fica em `index.html`, `styles.css` e `src/` e não exige
 - Sessões vinculadas à campanha, com estados Planejada, Realizada e Cancelada e controles para iniciar/encerrar a sessão.
 - Ao entrar, jogadores aguardam em uma tela preta; com a sessão da campanha ativa, acessam somente suas próprias fichas, em modo de leitura. O restante da navegação e dos quadros fica oculto.
 - Quadros de planejamento e backup JSON continuam disponíveis para os perfis autorizados.
+- A página Homebrew permite cadastrar habilidades, itens e rituais reutilizáveis. Os botões de nova habilidade, novo item e novo ritual permitem selecionar um registro do catálogo; a cópia inserida na ficha recebe novo identificador e segue o fluxo normal de edição.
 
 ### Persistência, acesso e privacidade
 
-O Supabase é a fonte compartilhada dos registros; `localStorage` é usado como cache local. As tabelas são protegidas por RLS. A migração `supabase/migrations/20261013130000_live_player_session.sql` foi aplicada e verificada no projeto Supabase do deploy em 13/10/2026; ela adiciona o estado de sessão ativa e restringe jogadores ao período de sessão e às próprias fichas. Para outros ambientes, execute a migração antes de liberar esse fluxo. Ela não apaga registros do jogo, mas substitui políticas de acesso para aplicar os limites descritos. Veja `docs/DECISOES-TECNICAS.md` para o desenho técnico.
+O Supabase é a fonte compartilhada dos registros; `localStorage` é usado como cache local. As tabelas são protegidas por RLS. A migração `supabase/migrations/20261013130000_live_player_session.sql` foi aplicada e verificada no projeto Supabase do deploy em 13/10/2026; ela adiciona o estado de sessão ativa e restringe jogadores ao período de sessão e às próprias fichas. A migração `supabase/migrations/20261103130000_homebrew_catalog.sql` cria o catálogo Homebrew e deve ser aplicada antes de usar sua sincronização remota. Para outros ambientes, execute as migrações antes de liberar esses fluxos. Veja `docs/DECISOES-TECNICAS.md` para o desenho técnico.
 
 ### Regras da ficha
 

@@ -26,6 +26,7 @@ A plataforma começou com páginas de início, campanhas, personagens, sessões 
 
 - Identidade escura, paranormal e investigativa, com efeitos de atmosfera de fundo e cuidado com legibilidade/desempenho.
 - Páginas para início, campanhas, personagens, sessões, planejamento e administração de acessos.
+- Página Homebrew para manter habilidades, itens e rituais reutilizáveis; os registros copiados para uma ficha recebem novo identificador e tornam-se independentes do catálogo.
 - Fichas com navegação em abas que substitui o conteúdo anterior, em vez de acumular as seções na página.
 - A navegação e as ações são condicionadas ao perfil autenticado e às permissões correspondentes.
 
@@ -64,6 +65,13 @@ A plataforma começou com páginas de início, campanhas, personagens, sessões 
 - A migração supabase/migrations/20261013130000_live_player_session.sql, aplicada e verificada no projeto Supabase do deploy em 13/10/2026, adicionou o estado de sessão ativa e as políticas necessárias para limitar o período de acesso e as fichas visíveis ao jogador.
 - A tela do jogador atualiza o estado consultando o workspace a cada 10 segundos; não é uma atualização em tempo real.
 - Em 13/10/2026, foi incluído o botão “Sair” tanto na tela preta de espera quanto durante a sessão, junto à ficha. Ele reutiliza o fluxo existente de logout Supabase e retorna o jogador à tela de login. A mudança foi integrada pelo PR #15, e os arquivos publicados foram comparados com a versão integrada.
+
+3.6 Homebrew
+
+- A página Homebrew mantém catálogos separados de habilidades, itens e rituais reutilizáveis.
+- Os botões “Nova habilidade”, “Novo item” e “Novo ritual” abrem um seletor que permite escolher um registro do catálogo ou criar um registro novo diretamente na ficha.
+- A inserção copia todos os campos e gera um novo identificador; editar ou excluir o catálogo não altera cópias já inseridas nas fichas.
+- A migração `supabase/migrations/20261103130000_homebrew_catalog.sql` cria a tabela `homebrew_entries`, com acesso do proprietário ou administrador por RLS. Ela deve ser aplicada no projeto Supabase antes de usar o catálogo com sincronização remota.
 
 4. ALTERAÇÕES RECENTES E HISTÓRICO DE INTEGRAÇÃO
 

@@ -824,6 +824,8 @@ main { min-height: calc(100vh - 76px); }
 
 /* Inventário: ações compactas no card e exclusão dentro do editor */
 .inventory-item-body { gap: 6px; padding: 0 14px 11px; }
+.inventory-item-card[open] > .inventory-item-summary { padding-bottom: 7px; }
+.inventory-item-card[open] > .inventory-item-body { margin-top: -1px; }
 .inventory-item-actions { display: flex; justify-content: flex-start; }
 .inventory-item-actions .button { min-height: 27px; padding: 4px 9px; font-size: 10px; }
 .inventory-form-delete-row { display: flex; justify-content: flex-start; margin-top: 12px; }
@@ -840,11 +842,11 @@ main { min-height: calc(100vh - 76px); }
 .ritual-card-summary::-webkit-details-marker { display: none; }
 .ritual-summary-title { min-width: 0; flex: 1; color: #f1ecef; font: 600 15px/1.3 var(--display); overflow-wrap: anywhere; }
 .ritual-element-badge { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; border-radius: 3px; background: #502b34; color: #f2aaa5; font-size: 10px; font-weight: 800; white-space: nowrap; }
-.ritual-element-badge--conhecimento { background: #362b50; color: #c8a9ff; }
+.ritual-element-badge--conhecimento { background: #5c4618; color: #f2d36d; }
 .ritual-element-badge--morte { background: #303238; color: #b8bec9; }
 .ritual-element-badge--sangue { background: #602d32; color: #ffaaa2; }
-.ritual-element-badge--energia { background: #554723; color: #f0d476; }
-.ritual-element-badge--medo { background: #343436; color: #e6e1e3; }
+.ritual-element-badge--energia { background: #4d2b69; color: #d6a8ff; }
+.ritual-element-badge--medo { background: #111114; color: #f0ecef; border: 1px solid #49454b; }
 .ritual-element-badge--legacy { background: #51462d; color: #e6cb87; }
 .ritual-expand-hint { color: #bd79ef; font: 700 19px/1 var(--mono); transition: transform .16s ease; }
 .ritual-card[open] > .ritual-card-summary .ritual-expand-hint { transform: rotate(180deg); }
@@ -871,6 +873,22 @@ main { min-height: calc(100vh - 76px); }
 .ritual-variant-form h3 { grid-column: 1 / -1; margin: 0; color: #c18be9; font-size: 12px; }
 .ritual-variant-form .field.full { grid-column: auto; }
 .ritual-form-delete-row { margin-top: 14px; }
+.homebrew-intro { margin: -8px 0 18px; padding: 13px 15px; border: 1px solid rgba(226, 199, 190, .15); border-left: 3px solid #bd796d; border-radius: 8px; background: rgba(19, 17, 20, .72); color: #cfc3be; font-size: 13px; line-height: 1.55; }
+.homebrew-groups { display: grid; gap: 16px; }
+.homebrew-group { min-width: 0; }
+.homebrew-group .panel-heading { align-items: flex-start; }
+.homebrew-group .panel-heading h2 { margin: 0; }
+.homebrew-group .panel-heading p { margin: 5px 0 0; color: #9e9693; font-size: 12px; }
+.homebrew-list { display: grid; gap: 9px; }
+.homebrew-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-width: 0; padding: 13px 15px; border: 1px solid rgba(226, 199, 190, .14); border-radius: 9px; background: rgba(11, 10, 13, .56); }
+.homebrew-card h3 { margin: 0 0 4px; color: #f0e8e2; font: 600 16px/1.2 var(--display); }
+.homebrew-card p { max-width: 760px; margin: 0; color: #b9b0ad; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.homebrew-card-actions, .homebrew-picker-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.homebrew-picker-list { display: grid; gap: 8px; max-height: min(52vh, 520px); overflow: auto; margin-top: 16px; }
+.homebrew-picker-item { display: grid; gap: 4px; width: 100%; padding: 12px 14px; border: 1px solid rgba(226, 199, 190, .16); border-radius: 8px; background: rgba(11, 10, 13, .62); color: #f0e8e2; text-align: left; cursor: pointer; }
+.homebrew-picker-item:hover, .homebrew-picker-item:focus-visible { border-color: rgba(197, 119, 108, .55); background: rgba(43, 27, 31, .8); }
+.homebrew-picker-item strong { font: 600 15px/1.2 var(--display); }
+.homebrew-picker-item span { color: #aaa19f; font-size: 11px; line-height: 1.45; }
 .session-record--live { border-color: #75383d; box-shadow: inset 3px 0 #b64a50; }
 .session-record-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .session-record-heading h3 { margin: 0; }
@@ -920,4 +938,7 @@ html[data-player-mode="active"] #app-shell > main { display: block; }
   .ritual-card-image-wrap { width: 100px; height: 100px; grid-row: 1; }
   .ritual-form-grid { grid-template-columns: 1fr; }
   .ritual-form-grid > .field:has(textarea[name="description"]), .ritual-form-grid > .ritual-variant-form { grid-column: auto; }
+  .homebrew-card { align-items: flex-start; flex-direction: column; }
+  .homebrew-card-actions { width: 100%; }
+  .homebrew-card-actions .button { flex: 1; }
 }

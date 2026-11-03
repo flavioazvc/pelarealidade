@@ -4,6 +4,8 @@
 
 O site é uma aplicação estática publicada no GitHub Pages. A autenticação usa Supabase Auth com nickname; campanhas, fichas, sessões e quadros são sincronizados com o Supabase, com RLS no Postgres. O `localStorage` permanece como estado local/cache do navegador e o backup JSON continua disponível.
 
+O catálogo Homebrew também é sincronizado com o Supabase na tabela `homebrew_entries`. Cada habilidade, item ou ritual é armazenado como uma entrada reutilizável pertencente ao usuário; ao ser inserido em uma ficha, seus dados são copiados com um novo identificador e passam a ser independentes do catálogo. A migração `20261103130000_homebrew_catalog.sql` precisa ser aplicada antes de liberar esse fluxo em um ambiente Supabase.
+
 ## Integração Supabase — estado atual
 
 `src/supabase.js` inicializa o SDK `@supabase/supabase-js` com URL e chave publishable. `src/auth.js` autentica por nickname por meio da Edge Function autorizada; as Edge Functions `username-login` e `admin-users` mediam login e operações administrativas. A criação de contas permanece restrita ao administrador e o cadastro público fica desativado.
