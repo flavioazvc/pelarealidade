@@ -1,0 +1,106 @@
+PELA REALIDADE — RESUMO DA CONVERSA E DAS ALTERAÇÕES
+
+Atualizado em: 03/11/2026
+Projeto: Pela Realidade — plataforma de RPG baseada em Ordem Paranormal RPG
+Repositório/local do projeto: /home/ubuntu/pelarealidade
+Site publicado: https://flavioazvc.github.io/pelarealidade/
+
+1. OBJETIVO E CONTEXTO
+
+O projeto é uma aplicação web para organizar campanhas, personagens, fichas, sessões e planejamento de RPG. A interface foi concebida para uma atmosfera paranormal/investigativa, mas sem estética de terminal: fundo escuro, neblina e tempestade animadas, relâmpagos sutis, tipografia legível, hierarquia visual clara e adaptação a telas menores.
+
+A plataforma começou com páginas de início, campanhas, personagens, sessões e planejamento. Ao longo do trabalho, foram refinadas as apresentações em cartões, os resumos de campanha/personagem e o aproveitamento do espaço. O projeto foi depois ampliado com autenticação, sincronização remota e uma ficha interativa de Ordem Paranormal.
+
+2. ARQUITETURA E PUBLICAÇÃO
+
+- Frontend: aplicação de página única construída com JavaScript puro e módulos ES, HTML e CSS customizado.
+- Backend e persistência compartilhada: Supabase, incluindo Postgres, Supabase Auth, políticas RLS e Edge Functions.
+- Autenticação: entrada por nickname e senha, sem exigir nickname como endereço de e-mail na interface; contas são administradas, sem auto cadastro público.
+- Publicação: GitHub Pages, pela branch main, em https://flavioazvc.github.io/pelarealidade/.
+- O localStorage é utilizado como cache local; o Supabase é a fonte compartilhada dos registros.
+- As credenciais de autenticação pertencem ao Supabase Auth. Senhas administrativas, tokens e chaves Secret/service_role não devem ser registrados neste resumo, no código cliente ou no Git.
+
+3. FUNCIONALIDADES ENTREGUES
+
+3.1 Interface e navegação
+
+- Identidade escura, paranormal e investigativa, com efeitos de atmosfera de fundo e cuidado com legibilidade/desempenho.
+- Páginas para início, campanhas, personagens, sessões, planejamento e administração de acessos.
+- Fichas com navegação em abas que substitui o conteúdo anterior, em vez de acumular as seções na página.
+- A navegação e as ações são condicionadas ao perfil autenticado e às permissões correspondentes.
+
+3.2 Ficha de personagem
+
+- Abas da ficha: Geral, Perícias, Habilidades, Inventário, Rituais e Descrição.
+- Atributos posicionados sobre a arte personalizada segundo coordenadas percentuais indicadas pelo usuário.
+- Recursos PV, SAN e PE com valores atuais e máximos, ajustáveis na ficha.
+- Perícias fixas: Acrobacia, Adestramento, Artes, Atletismo, Atualidades, Ciências, Crime, Diplomacia, Enganação, Fortitude, Furtividade, Iniciativa, Intimidação, Intuição, Investigação, Luta, Medicina, Ocultismo, Percepção, Pilotagem, Pontaria, Profissão, Reflexos, Religião, Sobrevivência, Tática, Tecnologia e Vontade.
+- O bônus de treino das perícias alterna entre +0, +5, +10 e +15. A apresentação diferencia os níveis com branco, verde, azul e dourado, respectivamente.
+- Habilidades aparecem em cartões expansíveis; editar e excluir ficam nos próprios controles da habilidade. Termos de regras e perícias são destacados visualmente quando aparecem nas descrições.
+- A descrição da ficha possui campos separados para Aparência, Personalidade e História.
+- Há associação entre ficha e conta de jogador, usando o nome de exibição/perfil para apresentar o jogador, em vez do nickname.
+
+3.3 Inventário
+
+- Itens são editáveis individualmente e incluem nome, categoria, espaços e descrição; a exclusão fica dentro do fluxo de edição.
+- Categorias de carga: 0, I, II, III e IV, com contadores e limites definidos na ficha.
+- O total de espaços é comparado ao limite de Força × 5 e sinalizado quando excede esse limite.
+- Em 13/10/2026, foi ajustada a validação para aceitar espaços negativos e decimais, por exemplo -1,5 ou 0,25. Valores podem ser digitados com ponto ou vírgula decimal e são mostrados no formato brasileiro.
+- A alteração de espaços negativos/decimais foi integrada pelo PR #14. Testes locais verificaram persistência, renderização e soma decimal; os arquivos publicados do GitHub Pages foram comparados com a versão integrada.
+
+3.4 Rituais
+
+- É possível criar, editar e remover rituais estruturados dentro da ficha.
+- Campos: elemento (Conhecimento, Morte, Sangue, Energia ou Medo), círculo (1º a 4º), execução (Padrão, Movimento, Completa, Reação ou Livre), alcance (Pessoal, Toque, Curto, Médio, Longo, Extremo ou Ilimitado), alvo, duração e resistência personalizados.
+- O ritual pode ter imagem indicada por URL HTTP(S), descrição e versões Discente e/ou Verdadeiro personalizadas.
+- Os registros estruturados preservam compatibilidade com conteúdo legado. Upload de imagem diretamente para o Storage não faz parte do fluxo documentado aqui.
+
+3.5 Sessões e acesso de jogadores
+
+- Sessões pertencem a campanhas, possuem estado Planejada, Realizada ou Cancelada e podem ser iniciadas ou encerradas pelo mestre/administrador.
+- Ao entrar sem sessão ativa associada, o jogador vê uma tela completamente preta com a mensagem “Aguarde a sessão iniciar, {nome do jogador}.” e não tem acesso à navegação geral.
+- Quando uma sessão associada é iniciada, o jogador acessa somente as próprias fichas vinculadas; a barra superior, campanhas e demais páginas permanecem ocultas. A ficha é apresentada em modo de leitura.
+- O acesso remoto é restringido por políticas RLS, não apenas por controles visuais do frontend.
+- A migração supabase/migrations/20261013130000_live_player_session.sql, aplicada e verificada no projeto Supabase do deploy em 13/10/2026, adicionou o estado de sessão ativa e as políticas necessárias para limitar o período de acesso e as fichas visíveis ao jogador.
+- A tela do jogador atualiza o estado consultando o workspace a cada 10 segundos; não é uma atualização em tempo real.
+- Em 13/10/2026, foi incluído o botão “Sair” tanto na tela preta de espera quanto durante a sessão, junto à ficha. Ele reutiliza o fluxo existente de logout Supabase e retorna o jogador à tela de login. A mudança foi integrada pelo PR #15, e os arquivos publicados foram comparados com a versão integrada.
+
+4. ALTERAÇÕES RECENTES E HISTÓRICO DE INTEGRAÇÃO
+
+- PR #12: melhoria dos controles do inventário e associação de fichas a jogadores registrados, apresentando nome de perfil. Integrado à main e validado no contexto da conversa.
+- PR #13: rituais estruturados e modo restrito do jogador associado a sessões ao vivo, incluindo persistência e regras de acesso. A migração Supabase correspondente foi autorizada, aplicada e verificada.
+- PR #14: aceitação de espaços negativos e decimais em itens do inventário; integrado e publicação verificada.
+- PR #15: botão “Sair” para o jogador na tela preta e durante a sessão; integrado e publicação verificada.
+
+Os números e estados acima refletem o histórico de execução conhecido até 13/10/2026. Não foi feita neste arquivo uma nova consulta ao GitHub ou ao Supabase após essa data.
+
+5. DECISÕES E LIMITAÇÕES CONHECIDAS
+
+- Dados e permissões do jogo devem permanecer protegidos por autenticação e RLS; esconder páginas ou botões sozinho não é uma barreira de segurança.
+- Não inserir credenciais, senhas ou chaves administrativas no repositório.
+- A imagem dos rituais é referenciada por URL HTTP(S); não há upload de arquivo incluído nesse fluxo.
+- A tela de jogador consulta mudanças da sessão em intervalos de 10 segundos.
+- O histórico disponível registra testes locais de sintaxe, serialização, renderização e validação de dados. Também registra que não havia sido realizado um teste end-to-end completo com contas reais de jogador nem uma validação física em leitores de tela/dispositivos.
+- A referência de regras da ficha documentada no README é Ordem Paranormal RPG — Livro Básico, versão 1.3. Os valores da ficha são manuais; não há cálculo automático das regras nem validação completa de combinações.
+
+6. PRINCIPAIS ARQUIVOS DO PROJETO
+
+- src/app.js: controlador da aplicação, autenticação, permissões, formulários e eventos.
+- src/character-sheet.js: renderização das abas e componentes da ficha.
+- src/character-data.js: normalização e serialização de habilidades, inventário, descrição e rituais.
+- src/cloud-store.js: sincronização do workspace com as tabelas Supabase.
+- src/auth.js: login por nickname e operações relacionadas ao perfil/autenticação.
+- src/store.js: estado local, cache e escopo de dados.
+- styles.css: identidade visual, layout responsivo e estilos das telas de ficha/jogador.
+- index.html: estrutura da aplicação e referências de assets com cache-busting.
+- supabase/migrations/: histórico de migrações SQL do banco e das políticas.
+- docs/DECISOES-TECNICAS.md: decisões técnicas detalhadas.
+
+7. REFERÊNCIAS
+
+- Aplicação: https://flavioazvc.github.io/pelarealidade/
+- Repositório: https://github.com/flavioazvc/pelarealidade
+- README de implementação: README.md
+- Decisões técnicas: docs/DECISOES-TECNICAS.md
+
+Este arquivo é um resumo de contexto e histórico para continuidade do trabalho. Para detalhes de implementação, esquema atual ou estado mais recente do deploy, consultar os arquivos e serviços do projeto.
