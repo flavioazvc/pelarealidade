@@ -468,7 +468,10 @@ function renderAccesses(profiles=[]) {
 async function refreshProfiles() {
   if (currentProfile?.role!=='admin' || !currentClient) return;
   try {
-    profileCache=await listProfiles(currentClient);
+    const loadedProfiles=await listProfiles(currentClient);
+    const profilesById=new Map((profileCache||[]).map(profile=>[profile.user_id,profile]));
+    for(const profile of loadedProfiles) profilesById.set(profile.user_id,profile);
+    profileCache=[...profilesById.values()];
     const list=main.querySelector('#access-user-list');
     if(list) list.innerHTML=renderAccessList(profileCache);
   } catch(error) { toast(error.message,'error'); }
@@ -532,8 +535,10 @@ async function characterForm(ch={},preselected='') {
     try{
       const profiles=await listProfiles(currentClient);
       if(currentUser?.id!==requestorId||currentProfile?.role!=='admin')return;
-      profileCache=profiles;
-      playerProfiles=profiles.filter(profile=>profile.role==='player');
+      const profilesById=new Map((profileCache||[]).map(profile=>[profile.user_id,profile]));
+      for(const profile of profiles) profilesById.set(profile.user_id,profile);
+      profileCache=[...profilesById.values()];
+      playerProfiles=profileCache.filter(profile=>profile.role==='player');
       characterPlayerProfiles=playerProfiles;
     }catch(error){toast(`Não foi possível carregar os jogadores cadastrados: ${error.message}`,'error');return;}
   }else characterPlayerProfiles=[];
@@ -862,7 +867,7 @@ document.addEventListener('submit',async event=>{
   if(form.id==='admin-create-form'){
     event.preventDefault();if(currentProfile?.role!=='admin'||!form.reportValidity())return;
     const fd=new FormData(form),button=form.querySelector('[type="submit"]');if(button)button.disabled=true;
-    try{await requestAdminOperation(currentClient,{action:'create',username:String(fd.get('username')||''),display_name:String(fd.get('display_name')||''),role:String(fd.get('role')||''),password:String(fd.get('password')||'')});form.reset();await refreshProfiles();toast('A conta foi criada. Entregue a senha inicial ao usuário por um canal privado.');}
+    try{const result=await requestAdminOperation(currentClient,{action:'create',username:String(fd.get('username')||''),display_name:String(fd.get('display_name')||''),role:String(fd.get('role')||''),password:String(fd.get('password')||'')});if(result?.profile?.user_id&&!profileCache.some(profile=>profile.user_id===result.profile.user_id))profileCache=[...profileCache,result.profile];form.reset();await refreshProfiles();toast('A conta foi criada. Entregue a senha inicial ao usuário por um canal privado.');}
     catch(error){toast(error.message,'error');}
     finally{if(button)button.disabled=false;}
     return;
