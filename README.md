@@ -518,6 +518,7 @@ A aplicação estática fica em `index.html`, `styles.css` e `src/` e não exige
 - Quadros de planejamento e backup JSON continuam disponíveis para os perfis autorizados.
 - A página Homebrew permite cadastrar habilidades, itens e rituais reutilizáveis. Os botões de nova habilidade, novo item e novo ritual permitem selecionar um registro do catálogo; a cópia inserida na ficha recebe novo identificador e segue o fluxo normal de edição.
 - Cada sessão possui uma animação de fundo selecionável — “Preto e Branco” ou “Roxo e Vermelho”. Quando a sessão está ao vivo, o tema escolhido aparece atrás das fichas dos jogadores vinculados.
+- Capas de campanhas, retratos de personagens e imagens de rituais aceitam upload direto do computador (PNG, JPEG, WEBP, GIF ou SVG, até 5 MB), além de URLs HTTPS. O upload usa o bucket público `user-media` do Supabase Storage e requer a migração `supabase/migrations/20261104150000_user_media_storage.sql`.
 
 ### Persistência, acesso e privacidade
 

@@ -209,6 +209,23 @@ function applyRoleControls() {
 }
 
 function esc(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'];
+async function uploadImageFile(file, folder) {
+  if (!currentClient || !currentUser) throw new Error('Entre na conta antes de enviar uma imagem.');
+  if (!IMAGE_MIME_TYPES.includes(file.type)) throw new Error('Formato não permitido. Use PNG, JPEG, WEBP, GIF ou SVG.');
+  if (file.size > IMAGE_MAX_BYTES) throw new Error('A imagem deve ter no máximo 5 MB.');
+  const extension = (file.name.split('.').pop() || 'img').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'img';
+  const path = `${currentUser.id}/${folder}/${uid()}.${extension}`;
+  const { error } = await currentClient.storage.from('user-media').upload(path, file, { contentType: file.type, cacheControl: '31536000', upsert: false });
+  if (error) throw new Error(`Não foi possível enviar a imagem: ${error.message}`);
+  const { data } = currentClient.storage.from('user-media').getPublicUrl(path);
+  if (!data?.publicUrl) throw new Error('O Storage não retornou o endereço da imagem.');
+  return data.publicUrl;
+}
+function imageField(name, label, value = '', folder, hint = 'Escolha um arquivo do computador ou informe uma URL HTTPS.') {
+  return `<div class="field image-upload-field"><label for="f-${name}">${label}</label><input id="f-${name}" name="${name}" type="url" value="${esc(value)}" maxlength="2000" placeholder="https://…"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-image-upload data-target="${esc(name)}" data-folder="${esc(folder)}" aria-label="Enviar ${esc(label.toLocaleLowerCase('pt-BR'))}"><small data-upload-status>${hint} Limite: 5 MB.</small></div>`;
+}
 function fmtDate(value, options={dateStyle:'medium'}) { if (!value) return 'Sem data'; const d = new Date(value); return Number.isNaN(+d) ? 'Sem data' : new Intl.DateTimeFormat('pt-BR', options).format(d); }
 function toast(message, kind='success') { const region=document.querySelector('#toast-region'); const node=document.createElement('div'); node.className=`toast ${kind==='error'?'error':kind==='warning'?'warning':''}`; node.textContent=message; region.append(node); setTimeout(()=>node.remove(),4200); }
 function idHref(path) { return `#/${path}`; }
@@ -540,7 +557,7 @@ function openModal(title,intro,formContent,submitLabel='Salvar',formId='entity-f
 function valueField(name,label,value='',type='text',extra='') { return `<div class="field"><label for="f-${name}">${label}</label><input id="f-${name}" name="${name}" type="${type}" value="${esc(value)}" ${extra}></div>`; }
 function textareaField(name,label,value='',hint='') { return `<div class="field full"><label for="f-${name}">${label}</label><textarea id="f-${name}" name="${name}" ${hint?`aria-describedby="hint-${name}"`:''}>${esc(value)}</textarea>${hint?`<small id="hint-${name}">${hint}</small>`:''}</div>`; }
 function sheetTextareaField(name,label,value='',maxLength=10000) { return `<div class="field full"><label for="f-${name}">${label}</label><textarea id="f-${name}" name="${name}" maxlength="${maxLength}">${esc(value)}</textarea></div>`; }
-function campaignForm(c={}) { openModal(c.id?'Editar campanha':'Nova campanha','O quadro geral desta campanha começa vazio.',`<input type="hidden" name="id" value="${esc(c.id||'')}"><div class="form-grid">${valueField('name','Nome da campanha',c.name||'','text','required maxlength="120"')}${valueField('cover','URL da imagem de capa (opcional)',c.cover||'','url','placeholder="https://…"')}${textareaField('description','Descrição',c.description||'')}</div>`); }
+function campaignForm(c={}) { openModal(c.id?'Editar campanha':'Nova campanha','O quadro geral desta campanha começa vazio.',`<input type="hidden" name="id" value="${esc(c.id||'')}"><div class="form-grid">${valueField('name','Nome da campanha',c.name||'','text','required maxlength="120"')}${imageField('cover','Imagem de capa (opcional)',c.cover||'','campaign-covers')}${textareaField('description','Descrição',c.description||'')}</div>`); }
 async function characterForm(ch={},preselected='') {
   const isAdmin=currentProfile?.role==='admin';
   let playerProfiles=[];
@@ -571,7 +588,7 @@ async function characterForm(ch={},preselected='') {
   const fields=[
     valueField('name','Nome do personagem *',ch.name||'','text','required maxlength="100"'),
     ownerField,
-    valueField('portrait','Imagem do personagem/jogador (URL, opcional)',ch.portrait||'','url','placeholder="https://…"'),
+    imageField('portrait','Imagem do personagem/jogador (opcional)',ch.portrait||'','portraits'),
     valueField('playerNote','Anotação de jogador (opcional)',ch.playerNote||''),
     valueField('origin','Origem',ch.origin||''),
     valueField('className','Classe',ch.className||''),
@@ -608,7 +625,7 @@ function homebrewForm(kind, item = null) {
   if (kind === 'rituals') {
     const options = (name, label, values, selected) => `<div class="field"><label for="f-${name}">${label}</label><select id="f-${name}" name="${name}" required>${values.map(value => `<option value="${esc(value)}" ${selected === value ? 'selected' : ''}>${esc(value)}</option>`).join('')}</select></div>`;
     const variants = `<div class="ritual-variant-form"><h3>Discente · opcional</h3>${valueField('discenteCost', 'Custo adicional em PE', item?.discenteCost || '', 'number', 'min="0" step="1"')}${sheetTextareaField('discente', 'Efeito discente', item?.discente || '', 10000)}</div><div class="ritual-variant-form"><h3>Verdadeiro · opcional</h3>${valueField('trueCost', 'Custo adicional em PE', item?.trueCost || '', 'number', 'min="0" step="1"')}${sheetTextareaField('trueEffect', 'Efeito verdadeiro', item?.trueEffect || '', 10000)}</div>`;
-    fields = `${valueField('name', 'Nome do ritual', item?.name || '', 'text', 'required maxlength="120"')}${options('element', 'Elemento', RITUAL_ELEMENTS, item?.element || RITUAL_ELEMENTS[0])}${options('circle', 'Círculo', RITUAL_CIRCLES, item?.circle || RITUAL_CIRCLES[0])}${options('execution', 'Execução', RITUAL_EXECUTIONS, item?.execution || RITUAL_EXECUTIONS[0])}${options('range', 'Alcance', RITUAL_RANGES, item?.range || RITUAL_RANGES[0])}${valueField('target', 'Alvo', item?.target || '', 'text', 'required maxlength="300"')}${valueField('duration', 'Duração', item?.duration || '', 'text', 'required maxlength="300"')}${valueField('resistance', 'Resistência', item?.resistance || '', 'text', 'required maxlength="300"')}${valueField('image', 'Imagem (URL opcional)', item?.image || '', 'url', 'maxlength="2000"')}${sheetTextareaField('description', 'Efeito base', item?.description || '', 10000)}${variants}`;
+    fields = `${valueField('name', 'Nome do ritual', item?.name || '', 'text', 'required maxlength="120"')}${options('element', 'Elemento', RITUAL_ELEMENTS, item?.element || RITUAL_ELEMENTS[0])}${options('circle', 'Círculo', RITUAL_CIRCLES, item?.circle || RITUAL_CIRCLES[0])}${options('execution', 'Execução', RITUAL_EXECUTIONS, item?.execution || RITUAL_EXECUTIONS[0])}${options('range', 'Alcance', RITUAL_RANGES, item?.range || RITUAL_RANGES[0])}${valueField('target', 'Alvo', item?.target || '', 'text', 'required maxlength="300"')}${valueField('duration', 'Duração', item?.duration || '', 'text', 'required maxlength="300"')}${valueField('resistance', 'Resistência', item?.resistance || '', 'text', 'required maxlength="300"')}${imageField('image', 'Imagem do ritual (opcional)', item?.image || '', 'homebrew-rituals')}${sheetTextareaField('description', 'Efeito base', item?.description || '', 10000)}${variants}`;
   }
   openModal(id ? `Editar ${heading} Homebrew` : `Novo ${heading} Homebrew`, 'Este registro ficará disponível para reutilização nas fichas.', `<input type="hidden" name="kind" value="${kind}"><input type="hidden" name="itemId" value="${esc(id)}"><div class="form-grid${kind === 'rituals' ? ' ritual-form-grid' : ''}">${fields}</div>`, `Salvar ${heading}`, 'homebrew-form');
 }
@@ -654,7 +671,7 @@ function ritualForm(character, item = null, itemId = '', legacy = '') {
   const description = item?.description || legacy || '';
   const specialFields = `<div class="ritual-variant-form"><h3>Discente · opcional</h3>${valueField('discenteCost', 'Custo adicional em PE', item?.discenteCost || '', 'number', 'min="0" step="1" placeholder="Ex.: 5"')}${sheetTextareaField('discente', 'Efeito discente', item?.discente || '', 10000)}</div><div class="ritual-variant-form"><h3>Verdadeiro · opcional</h3>${valueField('trueCost', 'Custo adicional em PE', item?.trueCost || '', 'number', 'min="0" step="1" placeholder="Ex.: 9"')}${sheetTextareaField('trueEffect', 'Efeito verdadeiro', item?.trueEffect || '', 10000)}</div>`;
   openModal(id ? 'Editar ritual' : 'Novo ritual', 'Defina os parâmetros do ritual e, se quiser, seus aprimoramentos Discente e Verdadeiro.',
-    `<input type="hidden" name="characterId" value="${esc(character.id)}"><input type="hidden" name="itemId" value="${esc(id)}"><input type="hidden" name="convertLegacy" value="${legacy ? 'true' : ''}"><div class="form-grid ritual-form-grid">${valueField('name', 'Nome do ritual', item?.name || '', 'text', 'required maxlength="120"')}${options('element', 'Elemento', RITUAL_ELEMENTS, item?.element || RITUAL_ELEMENTS[0])}${options('circle', 'Círculo', RITUAL_CIRCLES, item?.circle || RITUAL_CIRCLES[0])}${options('execution', 'Execução', RITUAL_EXECUTIONS, item?.execution || RITUAL_EXECUTIONS[0])}${options('range', 'Alcance', RITUAL_RANGES, item?.range || RITUAL_RANGES[0])}${valueField('target', 'Alvo (personalizado)', item?.target || '', 'text', 'required maxlength="300" placeholder="Ex.: uma criatura"')}${valueField('duration', 'Duração (personalizada)', item?.duration || '', 'text', 'required maxlength="300" placeholder="Ex.: cena"')}${valueField('resistance', 'Resistência (personalizada)', item?.resistance || '', 'text', 'required maxlength="300" placeholder="Ex.: Fortitude parcial; ou Nenhuma"')}${valueField('image', 'Imagem do ritual (URL opcional)', item?.image || '', 'url', 'maxlength="2000" placeholder="https://…"')}${sheetTextareaField('description', 'Efeito base do ritual', description, id === '__legacy__' ? 20000 : 10000)}${specialFields}</div>${deleteButton}`,
+    `<input type="hidden" name="characterId" value="${esc(character.id)}"><input type="hidden" name="itemId" value="${esc(id)}"><input type="hidden" name="convertLegacy" value="${legacy ? 'true' : ''}"><div class="form-grid ritual-form-grid">${valueField('name', 'Nome do ritual', item?.name || '', 'text', 'required maxlength="120"')}${options('element', 'Elemento', RITUAL_ELEMENTS, item?.element || RITUAL_ELEMENTS[0])}${options('circle', 'Círculo', RITUAL_CIRCLES, item?.circle || RITUAL_CIRCLES[0])}${options('execution', 'Execução', RITUAL_EXECUTIONS, item?.execution || RITUAL_EXECUTIONS[0])}${options('range', 'Alcance', RITUAL_RANGES, item?.range || RITUAL_RANGES[0])}${valueField('target', 'Alvo (personalizado)', item?.target || '', 'text', 'required maxlength="300" placeholder="Ex.: uma criatura"')}${valueField('duration', 'Duração (personalizada)', item?.duration || '', 'text', 'required maxlength="300" placeholder="Ex.: cena"')}${valueField('resistance', 'Resistência (personalizada)', item?.resistance || '', 'text', 'required maxlength="300" placeholder="Ex.: Fortitude parcial; ou Nenhuma"')}${imageField('image', 'Imagem do ritual (opcional)', item?.image || '', 'rituals')}${sheetTextareaField('description', 'Efeito base do ritual', description, id === '__legacy__' ? 20000 : 10000)}${specialFields}</div>${deleteButton}`,
     'Salvar ritual', 'ritual-form');
 }
 
@@ -903,6 +920,26 @@ document.addEventListener('submit',async event=>{
     finally{if(button)button.disabled=false;}
     return;
   }
+});
+
+document.addEventListener('change', async event => {
+  const input = event.target.closest('[data-image-upload]');
+  if (!input || !input.files?.[0]) return;
+  const form = input.form;
+  const target = form?.elements?.namedItem(input.dataset.target);
+  const status = input.closest('.image-upload-field')?.querySelector('[data-upload-status]');
+  const file = input.files[0];
+  input.disabled = true;
+  if (status) status.textContent = 'Enviando imagem…';
+  try {
+    const url = await uploadImageFile(file, input.dataset.folder || 'images');
+    if (target) target.value = url;
+    if (status) status.textContent = 'Imagem enviada. Você pode salvar o formulário.';
+  } catch (error) {
+    if (status) status.textContent = error.message;
+    toast(error.message, 'error');
+    input.value = '';
+  } finally { input.disabled = false; }
 });
 
 document.addEventListener('submit',event=>{

@@ -945,3 +945,4 @@ html[data-player-mode="active"] #app-shell > main { display: block; }
   .homebrew-card-actions { width: 100%; }
   .homebrew-card-actions .button { flex: 1; }
 }
+.image-upload-field input[type="file"]{padding:8px;background:#171b1c;border:1px dashed #4a5050;color:#c7cbc7;font-size:11px}.image-upload-field small[data-upload-status]{min-height:16px;color:#8f9691}
