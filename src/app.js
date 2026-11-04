@@ -223,8 +223,22 @@ async function uploadImageFile(file, folder) {
   if (!data?.publicUrl) throw new Error('O Storage não retornou o endereço da imagem.');
   return data.publicUrl;
 }
+async function removeUploadedImage(url) {
+  if (!currentClient || !currentUser || !String(url || '').includes('/storage/v1/object/public/user-media/')) return;
+  try {
+    const parsed = new URL(url);
+    const marker = '/storage/v1/object/public/user-media/';
+    const path = decodeURIComponent(parsed.pathname.split(marker)[1] || '');
+    if (path && path.startsWith(`${currentUser.id}/`)) {
+      const { error } = await currentClient.storage.from('user-media').remove([path]);
+      if (error) throw error;
+    }
+  } catch (error) {
+    throw new Error(`A imagem foi removida do registro, mas não foi possível apagar o arquivo do Storage: ${error.message}`);
+  }
+}
 function imageField(name, label, value = '', folder, hint = 'Escolha um arquivo do computador ou informe uma URL HTTPS.') {
-  return `<div class="field image-upload-field"><label for="f-${name}">${label}</label><input id="f-${name}" name="${name}" type="url" value="${esc(value)}" maxlength="2000" placeholder="https://…"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-image-upload data-target="${esc(name)}" data-folder="${esc(folder)}" aria-label="Enviar ${esc(label.toLocaleLowerCase('pt-BR'))}"><small data-upload-status>${hint} Limite: 5 MB.</small></div>`;
+  return `<div class="field image-upload-field"><label for="f-${name}">${label}</label><input id="f-${name}" name="${name}" type="url" value="${esc(value)}" maxlength="2000" placeholder="https://…"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-image-upload data-target="${esc(name)}" data-folder="${esc(folder)}" aria-label="Enviar ${esc(label.toLocaleLowerCase('pt-BR'))}"><button class="button button-sm button-quiet image-clear-button" type="button" data-action="clear-image" data-target="${esc(name)}" ${value ? '' : 'hidden'}>Remover imagem</button><small data-upload-status>${hint} Limite: 5 MB.</small></div>`;
 }
 function fmtDate(value, options={dateStyle:'medium'}) { if (!value) return 'Sem data'; const d = new Date(value); return Number.isNaN(+d) ? 'Sem data' : new Intl.DateTimeFormat('pt-BR', options).format(d); }
 function toast(message, kind='success') { const region=document.querySelector('#toast-region'); const node=document.createElement('div'); node.className=`toast ${kind==='error'?'error':kind==='warning'?'warning':''}`; node.textContent=message; region.append(node); setTimeout(()=>node.remove(),4200); }
@@ -753,6 +767,17 @@ document.addEventListener('click',event=>{
     const character=data.characters.find(item=>item.id===button.dataset.character),kind=button.dataset.kind,item=(data.homebrew?.[kind]||[]).find(entry=>entry.id===button.dataset.item);
     if(!character||!item||!mayManageCharacter(character))return;createCharacterEntryFromHomebrew(character.id,kind,item);return;
   }
+  if(action==='clear-image'){
+    const form=button.form, target=form?.elements?.namedItem(button.dataset.target), status=button.closest('.image-upload-field')?.querySelector('[data-upload-status]');
+    if(!target)return;
+    const previous=target.value;
+    target.value=''; button.hidden=true;
+    if(status)status.textContent='Imagem removida do formulário. Salve para confirmar.';
+    if(previous){
+      removeUploadedImage(previous).catch(error=>{if(status)status.textContent=error.message;toast(error.message,'warning');});
+    }
+    return;
+  }
   if(action==='adjust-resource'){
     const character=data.characters.find(item=>item.id===id);const key=button.dataset.resource;const resource=character&&getCharacterResource(character,key);
     if(!character||!['pv','san','pe'].includes(key)||!resource?.configured)return;
@@ -934,6 +959,8 @@ document.addEventListener('change', async event => {
   try {
     const url = await uploadImageFile(file, input.dataset.folder || 'images');
     if (target) target.value = url;
+    const clearButton = input.closest('.image-upload-field')?.querySelector('[data-action="clear-image"]');
+    if (clearButton) clearButton.hidden = false;
     if (status) status.textContent = 'Imagem enviada. Você pode salvar o formulário.';
   } catch (error) {
     if (status) status.textContent = error.message;
