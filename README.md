@@ -521,6 +521,7 @@ A aplicação estática fica em `index.html`, `styles.css` e `src/` e não exige
 - Capas de campanhas, retratos de personagens e imagens de rituais aceitam upload direto do computador (PNG, JPEG, WEBP, GIF ou SVG, até 5 MB), além de URLs HTTPS. O upload usa o bucket público `user-media` do Supabase Storage e requer a migração `supabase/migrations/20261104150000_user_media_storage.sql`.
 - Ao iniciar uma sessão, o mestre pode usar o Escudo do Mestre em uma nova aba. Ele oferece prévia da Tela dos Jogadores, cenas, overview das fichas, mixer reservado para música/efeitos e espaço reservado para transcrição. O estado inicial requer `supabase/migrations/20261104170000_session_stage.sql`; os arquivos de áudio usam o bucket criado por `supabase/migrations/20261104173000_session_audio_storage.sql`.
 - A Tela dos Jogadores ocupa a viewport inteira e exibe somente o conteúdo da cena, sem barra superior ou inferior. O formulário de cenas aceita imagem importada do computador. O envio de áudio é encaminhado diretamente pela aba autenticada principal e a migração do bucket aceita formatos comuns de MP3, WAV, OGG, WEBM, M4A, AAC e FLAC.
+- O Escudo usa um layout amplo com rolagem vertical para priorizar a prévia e os controles. Músicas e efeitos possuem controles de tocar/pausar e exclusão; arquivos enviados pelo usuário também são removidos do bucket `session-audio` quando excluídos.
 
 ### Persistência, acesso e privacidade
 

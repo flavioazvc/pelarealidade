@@ -87,6 +87,26 @@ async function uploadStageImage(sessionId, request, sourceWindow = null) {
   sourceWindow?.postMessage(message, location.origin);
   shieldChannels.get(sessionId)?.postMessage(message);
 }
+async function deleteStageAudio(sessionId, request) {
+  const session = getState().sessions.find(item => item.id === sessionId);
+  const stage = structuredClone(session?.stage || stageDefault());
+  const track = request.kind === 'music' ? stage.audio.music : (stage.audio.effects || []).find(effect => effect.id === request.id);
+  if (!track) return;
+  try {
+    const marker = '/storage/v1/object/public/session-audio/';
+    const parsed = new URL(track.url || '');
+    const path = decodeURIComponent(parsed.pathname.split(marker)[1] || '');
+    if (path && path.startsWith(`${currentUser.id}/`)) {
+      const { error } = await currentClient.storage.from('session-audio').remove([path]);
+      if (error) throw error;
+    }
+  } catch (error) { toast(`O registro será removido, mas o arquivo não pôde ser apagado do Storage: ${error.message}`, 'warning'); }
+  if (request.kind === 'music') stage.audio.music = null;
+  else stage.audio.effects = (stage.audio.effects || []).filter(effect => effect.id !== request.id);
+  commitAndSync(next => { const target = next.sessions.find(item => item.id === sessionId); if (target) target.stage = stage; });
+  const token = localStorage.getItem(`pela-realidade:shield-token:${sessionId}`) || '';
+  shieldChannels.get(sessionId)?.postMessage({ type: 'stage-state', state: stageSnapshot(sessionId, token) });
+}
 function openMasterShield(sessionId) {
   const session = getState().sessions.find(item => item.id === sessionId);
   if (!session) return;
@@ -110,6 +130,7 @@ function openMasterShield(sessionId) {
       const request = event.data;
       if (request.type === 'audio-upload-request') void uploadStageAudio(sessionId, request).catch(error => toast(error.message, 'error'));
       if (request.type === 'scene-image-request') void uploadStageImage(sessionId, request, event.source).catch(error => toast(error.message, 'error'));
+      if (request.type === 'delete-audio-request') void deleteStageAudio(sessionId, request);
     };
     window.addEventListener('message', directMessageHandler);
     if (channel) channel._directMessageBound = true;
