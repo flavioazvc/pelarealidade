@@ -1,0 +1,59 @@
+const root = document.querySelector('#shield-root');
+const params = new URLSearchParams(location.search);
+const mode = params.get('mode') === 'player' ? 'player' : 'master';
+const token = params.get('token') || '';
+const sessionId = params.get('session') || '';
+const storageKey = `pela-realidade:shield:${token}`;
+const channel = token && 'BroadcastChannel' in window ? new BroadcastChannel(`pela-realidade-shield:${token}`) : null;
+let state = null;
+let playerWindow = null;
+let musicAudio = null;
+
+function esc(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function initialStage() { return { campaign: {}, session: {}, characters: [], scenes: [], activeSceneId: '', audio: { music: null, effects: [] }, transcription: { status: 'reserved', text: '' } }; }
+function readState() { try { return JSON.parse(localStorage.getItem(storageKey) || 'null') || initialStage(); } catch { return initialStage(); } }
+function saveState(next, broadcast = true) { state = next; localStorage.setItem(storageKey, JSON.stringify(next)); if (broadcast) channel?.postMessage({ type: 'stage-state', state: next }); render(); }
+function activeScene() { return (state?.scenes || []).find(scene => scene.id === state.activeSceneId) || state?.scenes?.[0] || null; }
+function sceneMarkup(scene, compact = false) {
+  if (!scene) return '<div class="stage-empty"><span class="stage-kicker">TRANSMISSÃO EM ESPERA</span><h1>Nenhuma cena em exibição</h1><p>O mestre poderá transmitir uma cena para esta tela.</p></div>';
+  const image = scene.image ? `<img src="${esc(scene.image)}" alt="" class="stage-scene-image">` : '';
+  return `<article class="stage-scene ${compact ? 'stage-scene--compact' : ''}">${image}<div class="stage-scene-shade"></div><div class="stage-scene-copy"><span class="stage-kicker">${esc(scene.effect || 'CENA EM EXIBIÇÃO')}</span><h1>${esc(scene.title || 'Sem título')}</h1>${scene.description ? `<p>${esc(scene.description)}</p>` : ''}</div></article>`;
+}
+function playerMarkup() {
+  const campaign = state?.campaign || {}, session = state?.session || {};
+  return `<div class="player-screen-shell" data-atmosphere="${esc(session.atmosphere || 'purple-red')}"><header class="player-screen-brand"><span class="brand-mark">PR</span><div><strong>${esc(campaign.name || 'Pela Realidade')}</strong><small>${esc(session.title || 'Sessão ao vivo')}</small></div></header><main class="player-stage">${sceneMarkup(activeScene())}</main><footer class="player-screen-footer"><span>PELA REALIDADE · TRANSMISSÃO AO VIVO</span></footer></div>`;
+}
+function overviewMarkup() {
+  return (state?.characters || []).map(character => `<article class="shield-character-card">${character.portrait ? `<img src="${esc(character.portrait)}" alt="" class="shield-character-portrait">` : `<div class="shield-character-portrait portrait-placeholder"><span>${esc((character.name || '?').slice(0, 1).toUpperCase())}</span></div>`}<div class="shield-character-copy"><strong>${esc(character.name || 'Sem nome')}</strong><span>PV <b>${esc(character.pv || '—')}</b> · SAN <b>${esc(character.san || '—')}</b> · PE <b>${esc(character.pe || '—')}</b></span><span>Defesa <b>${esc(character.defense || '—')}</b></span></div></article>`).join('') || '<p class="shield-muted">Nenhuma ficha vinculada a esta campanha.</p>';
+}
+function sceneControls() {
+  return (state?.scenes || []).map(scene => `<div class="shield-scene-row ${scene.id === state.activeSceneId ? 'active' : ''}"><button type="button" data-action="show-scene" data-id="${esc(scene.id)}"><strong>${esc(scene.title || 'Sem título')}</strong><small>${esc(scene.description || 'Sem descrição')}</small></button><button type="button" class="shield-icon-button" title="Excluir cena" data-action="delete-scene" data-id="${esc(scene.id)}">×</button></div>`).join('') || '<p class="shield-muted">Crie a primeira cena para transmiti-la aos jogadores.</p>';
+}
+function audioMarkup() { const music = state?.audio?.music; const effects = state?.audio?.effects || []; return `<div class="shield-audio-row"><div><strong>Música ambiente</strong><small>${esc(music?.name || 'Nenhuma faixa carregada')}</small></div><div class="shield-audio-actions">${music ? `<button class="button button-sm" data-action="play-music">Tocar</button><label class="shield-fade-toggle"><input type="checkbox" data-action="music-fade" ${music.fade !== false ? 'checked' : ''}> Fade</label>` : ''}<input type="range" min="0" max="100" value="${Number(music?.volume ?? 70)}" data-action="music-volume" aria-label="Volume da música"></div></div><div class="shield-audio-upload"><select data-audio-kind aria-label="Tipo de áudio"><option value="music">Música ambiente</option><option value="effect">Efeito sonoro</option></select><input type="file" accept="audio/*" data-audio-upload aria-label="Enviar arquivo de áudio"></div><div class="shield-audio-row shield-audio-placeholder"><div><strong>Efeitos sonoros</strong><small>${effects.length ? `${effects.length} efeito(s) cadastrado(s)` : 'Nenhum efeito carregado'}</small>${effects.map(effect => `<button class="button button-sm shield-effect-button" data-action="play-effect" data-id="${esc(effect.id)}">${esc(effect.name || 'Tocar efeito')}</button>`).join('')}</div><span class="tag gray">SOBREPOR</span></div>`; }
+function render() {
+  if (!state) state = readState();
+  if (mode === 'player') { document.title = `${state.session?.title || 'Tela dos Jogadores'} — Pela Realidade`; root.innerHTML = playerMarkup(); return; }
+  document.title = `Escudo do Mestre — ${state.session?.title || 'Pela Realidade'}`;
+  root.innerHTML = `<div class="shield-shell"><header class="shield-topbar"><div><span class="shield-eyebrow">SALA DE CONTROLE · ${esc(state.campaign?.name || 'CAMPANHA')}</span><h1>Escudo do Mestre</h1></div><div class="shield-top-actions"><span class="tag red">AO VIVO</span><button class="button button-primary" data-action="open-player">Abrir Tela dos Jogadores</button><button class="button" data-action="close">Fechar</button></div></header><div class="shield-layout"><aside class="shield-sidebar"><section class="shield-panel"><div class="shield-panel-heading"><div><span class="shield-eyebrow">ROTEIRO</span><h2>Cenas</h2></div><button class="button button-sm" data-action="new-scene">＋ Cena</button></div><div class="shield-scene-list">${sceneControls()}</div></section><section class="shield-panel"><div class="shield-panel-heading"><div><span class="shield-eyebrow">ÁUDIO</span><h2>Mixer</h2></div></div>${audioMarkup()}<p class="shield-muted shield-audio-note">Arquivos de música e efeitos ficarão salvos permanentemente no Escudo.</p></section></aside><section class="shield-preview-panel"><div class="shield-preview-heading"><div><span class="shield-eyebrow">MONITOR PRINCIPAL</span><h2>Prévia da Tela dos Jogadores</h2></div><span class="shield-preview-live">TRANSMISSÃO LOCAL</span></div><div class="shield-preview">${playerMarkup()}</div><section class="shield-transcription"><div><span class="shield-eyebrow">ÁUDIO → TEXTO</span><h2>Transcrição</h2></div><span class="tag gray">ESPAÇO RESERVADO</span><p>Quando esta função for ativada, a gravação pelo microfone e a transcrição automática aparecerão aqui.</p></section></section><aside class="shield-sidebar shield-sidebar-right"><section class="shield-panel"><div class="shield-panel-heading"><div><span class="shield-eyebrow">FICHAS</span><h2>Overview</h2></div></div><div class="shield-character-list">${overviewMarkup()}</div></section></aside></div></div>`;
+}
+function makeScene() { const title = prompt('Título da cena'); if (!title) return; const description = prompt('Texto exibido aos jogadores (opcional)') || ''; const scene = { id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, title, description, image: '', effect: 'CENA EM EXIBIÇÃO' }; const next = { ...state, scenes: [...(state.scenes || []), scene], activeSceneId: scene.id }; saveState(next); }
+function playMusic() { const track = state?.audio?.music; if (!track?.url) return; if (musicAudio) musicAudio.pause(); musicAudio = new Audio(track.url); musicAudio.loop = true; const target = Number(track.volume ?? 70) / 100; musicAudio.volume = track.fade !== false ? 0 : target; void musicAudio.play().then(() => { if (track.fade === false) return; let step = 0; const timer = setInterval(() => { step += 1; if (!musicAudio) return clearInterval(timer); musicAudio.volume = Math.min(target, target * step / 12); if (step >= 12) clearInterval(timer); }, 100); }).catch(() => {}); }
+function playEffect(effect) { if (!effect?.url) return; const audio = new Audio(effect.url); audio.volume = Number(effect.volume ?? 80) / 100; void audio.play().catch(() => {}); }
+function handleAudioCommand(command) { if (command.kind === 'music') playMusic(); else if (command.kind === 'effect') playEffect((state?.audio?.effects || []).find(effect => effect.id === command.id)); }
+function handleAction(button) {
+  const action = button.dataset.action;
+  if (action === 'open-player') { playerWindow = window.open(`./shield.html?mode=player&session=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(token)}`, '_blank', 'noopener,noreferrer'); channel?.postMessage({ type: 'stage-state', state }); return; }
+  if (action === 'close') { window.close(); return; }
+  if (action === 'new-scene') { makeScene(); return; }
+  if (action === 'play-music') { handleAudioCommand({ kind: 'music' }); channel?.postMessage({ type: 'audio-command', command: { kind: 'music' } }); return; }
+  if (action === 'play-effect') { const command = { kind: 'effect', id: button.dataset.id }; handleAudioCommand(command); channel?.postMessage({ type: 'audio-command', command }); return; }
+  if (action === 'show-scene') { saveState({ ...state, activeSceneId: button.dataset.id }); return; }
+  if (action === 'delete-scene') { saveState({ ...state, scenes: state.scenes.filter(scene => scene.id !== button.dataset.id), activeSceneId: state.activeSceneId === button.dataset.id ? '' : state.activeSceneId }); return; }
+}
+root.addEventListener('click', event => { const button = event.target.closest('[data-action]'); if (button) handleAction(button); });
+root.addEventListener('input', event => { if (event.target.dataset.action === 'music-volume' && state.audio?.music) saveState({ ...state, audio: { ...state.audio, music: { ...state.audio.music, volume: Number(event.target.value) } } }); });
+root.addEventListener('change', event => { if (event.target.dataset.action === 'music-fade' && state.audio?.music) saveState({ ...state, audio: { ...state.audio, music: { ...state.audio.music, fade: event.target.checked } } }); });
+root.addEventListener('change', async event => { const input = event.target.closest('[data-audio-upload]'); if (!input?.files?.[0]) return; const file = input.files[0]; const kind = root.querySelector('[data-audio-kind]')?.value || 'music'; input.disabled = true; channel?.postMessage({ type: 'audio-upload-request', kind, name: file.name, mime: file.type, buffer: await file.arrayBuffer() }); input.value = ''; setTimeout(() => { input.disabled = false; }, 500); });
+channel?.addEventListener('message', event => { if (event.data?.type === 'stage-state' && event.data.state) { state = event.data.state; localStorage.setItem(storageKey, JSON.stringify(state)); render(); } if (event.data?.type === 'audio-command') handleAudioCommand(event.data.command || {}); });
+window.addEventListener('storage', event => { if (event.key === storageKey && event.newValue) { state = JSON.parse(event.newValue); render(); } });
+if (!token || !sessionId) { root.innerHTML = '<div class="stage-empty"><h1>Transmissão indisponível</h1><p>Abra esta tela pelo Escudo do Mestre.</p></div>'; } else { render(); channel?.postMessage({ type: 'stage-request' }); }

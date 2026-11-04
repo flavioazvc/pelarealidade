@@ -519,6 +519,7 @@ A aplicação estática fica em `index.html`, `styles.css` e `src/` e não exige
 - A página Homebrew permite cadastrar habilidades, itens e rituais reutilizáveis. Os botões de nova habilidade, novo item e novo ritual permitem selecionar um registro do catálogo; a cópia inserida na ficha recebe novo identificador e segue o fluxo normal de edição.
 - Cada sessão possui uma animação de fundo selecionável — “Preto e Branco” ou “Roxo e Vermelho”. Quando a sessão está ao vivo, o tema escolhido aparece atrás das fichas dos jogadores vinculados.
 - Capas de campanhas, retratos de personagens e imagens de rituais aceitam upload direto do computador (PNG, JPEG, WEBP, GIF ou SVG, até 5 MB), além de URLs HTTPS. O upload usa o bucket público `user-media` do Supabase Storage e requer a migração `supabase/migrations/20261104150000_user_media_storage.sql`.
+- Ao iniciar uma sessão, o mestre pode usar o Escudo do Mestre em uma nova aba. Ele oferece prévia da Tela dos Jogadores, cenas, overview das fichas, mixer reservado para música/efeitos e espaço reservado para transcrição. O estado inicial requer `supabase/migrations/20261104170000_session_stage.sql`; os arquivos de áudio usam o bucket criado por `supabase/migrations/20261104173000_session_audio_storage.sql`.
 
 ### Persistência, acesso e privacidade
 

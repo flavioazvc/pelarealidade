@@ -13,6 +13,7 @@ function equal(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 function indexById(rows) { return new Map(rows.map(row => [row.id, row])); }
 function isMissingHomebrewTable(error) { return error?.code === '42P01' || error?.code === 'PGRST205'; }
 function isMissingSessionAtmosphere(error) { return error?.code === '42703' || error?.code === 'PGRST204'; }
+function isMissingSessionStage(error) { return error?.code === '42703' || error?.code === 'PGRST204'; }
 let homebrewAvailable = true;
 
 export async function loadWorkspace(client, userId) {
@@ -57,7 +58,7 @@ export async function loadWorkspace(client, userId) {
   }));
   const sessions = (sessionResult.data || []).map(row => ({
     id: row.id, campaignId: row.campaign_id, title: row.title, date: row.session_at || '',
-    description: row.description || '', status: row.status, isLive: row.is_live === true, atmosphere: ['black-white', 'purple-red'].includes(row.atmosphere) ? row.atmosphere : 'purple-red', notes: row.notes || '',
+    description: row.description || '', status: row.status, isLive: row.is_live === true, atmosphere: ['black-white', 'purple-red'].includes(row.atmosphere) ? row.atmosphere : 'purple-red', notes: row.notes || '', stage: row.stage_state && typeof row.stage_state === 'object' ? row.stage_state : {},
     createdAt: row.created_at, updatedAt: row.updated_at, createdBy: row.created_by
   }));
   const boards = {};
@@ -104,7 +105,7 @@ function sessionRow(item, userId) {
   return {
     id: item.id, campaign_id: item.campaignId, created_by: item.createdBy || userId,
     title: item.title, session_at: item.date || null, description: item.description || '',
-    status: item.status || 'Planejada', is_live: item.isLive === true, atmosphere: ['black-white', 'purple-red'].includes(item.atmosphere) ? item.atmosphere : 'purple-red', notes: item.notes || '',
+    status: item.status || 'Planejada', is_live: item.isLive === true, atmosphere: ['black-white', 'purple-red'].includes(item.atmosphere) ? item.atmosphere : 'purple-red', notes: item.notes || '', stage_state: item.stage || {},
     created_at: item.createdAt || new Date().toISOString(), updated_at: item.updatedAt || new Date().toISOString()
   };
 }
@@ -169,8 +170,13 @@ export async function syncWorkspace(client, user, previous, next) {
   try {
     await saveChangedRows(client, 'sessions', sessionRows, oldSessions.keys(), ['id']);
   } catch (error) {
-    if (!isMissingSessionAtmosphere(error)) throw error;
-    await saveChangedRows(client, 'sessions', sessionRows.map(({ atmosphere, ...row }) => row), oldSessions.keys(), ['id']);
+    if (!isMissingSessionStage(error)) throw error;
+    try {
+      await saveChangedRows(client, 'sessions', sessionRows.map(({ stage_state, ...row }) => row), oldSessions.keys(), ['id']);
+    } catch (fallbackError) {
+      if (!isMissingSessionAtmosphere(fallbackError)) throw fallbackError;
+      await saveChangedRows(client, 'sessions', sessionRows.map(({ atmosphere, stage_state, ...row }) => row), oldSessions.keys(), ['id']);
+    }
   }
   if (homebrewAvailable) {
     const homebrewToSave = [];

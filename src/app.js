@@ -24,6 +24,7 @@ let profileCache = [];
 let characterPlayerProfiles = [];
 let playerRefreshTimer = null;
 let playerRefreshPending = false;
+const shieldChannels = new Map();
 const SESSION_ATMOSPHERES = [
   ['black-white', 'Preto e Branco'],
   ['purple-red', 'Roxo e Vermelho']
@@ -45,6 +46,51 @@ function commitAndSync(change) {
     return loadWorkspace(syncClient,syncUser.id).then(remote=>{if(currentUser?.id===syncUser.id)cloudSnapshot=remote;}).catch(()=>{}).finally(()=>toast(`Alteração salva neste navegador, mas a sincronização falhou: ${error.message}`, 'error'));
   });
   return true;
+}
+
+function stageDefault() { return { scenes: [], activeSceneId: '', audio: { music: null, effects: [] }, transcription: { status: 'reserved', text: '' } }; }
+function stageSnapshot(sessionId, token) {
+  const data = getState();
+  const session = data.sessions.find(item => item.id === sessionId);
+  const campaign = data.campaigns.find(item => item.id === session?.campaignId);
+  const characters = data.characters.filter(item => (item.campaignIds || []).includes(session?.campaignId));
+  return { token, campaign: campaign ? { name: campaign.name, cover: campaign.cover } : {}, session: session ? { id: session.id, title: session.title, atmosphere: session.atmosphere } : {}, characters, ...(session?.stage || stageDefault()) };
+}
+async function uploadStageAudio(sessionId, request) {
+  if (!currentClient || !currentUser || !request?.buffer) throw new Error('A sessão autenticada do mestre não está disponível.');
+  if (!String(request.mime || '').startsWith('audio/')) throw new Error('Escolha um arquivo de áudio válido.');
+  if (request.buffer.byteLength > 50 * 1024 * 1024) throw new Error('O arquivo de áudio deve ter no máximo 50 MB.');
+  const extension = (String(request.name || 'audio').split('.').pop() || 'audio').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'audio';
+  const path = `${currentUser.id}/${sessionId}/${uid()}.${extension}`;
+  const { error } = await currentClient.storage.from('session-audio').upload(path, request.buffer, { contentType: request.mime, cacheControl: '31536000', upsert: false });
+  if (error) throw new Error(`Não foi possível enviar o áudio: ${error.message}`);
+  const { data } = currentClient.storage.from('session-audio').getPublicUrl(path);
+  const current = getState().sessions.find(item => item.id === sessionId);
+  const stage = structuredClone(current?.stage || stageDefault());
+  const track = { id: uid(), url: data.publicUrl, name: String(request.name || 'Áudio'), volume: request.kind === 'music' ? 70 : 80, fade: request.kind === 'music' };
+  if (request.kind === 'music') stage.audio.music = track;
+  else stage.audio.effects = [...(stage.audio.effects || []), track];
+  commitAndSync(next => { const target = next.sessions.find(item => item.id === sessionId); if (target) target.stage = stage; });
+}
+function openMasterShield(sessionId) {
+  const session = getState().sessions.find(item => item.id === sessionId);
+  if (!session) return;
+  const tokenKey = `pela-realidade:shield-token:${sessionId}`;
+  const token = localStorage.getItem(tokenKey) || uid();
+  localStorage.setItem(tokenKey, token);
+  const popup = window.open(`./shield.html?mode=master&session=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(token)}`, '_blank');
+  if (!popup) toast('O navegador bloqueou a nova aba. Permita pop-ups para abrir o Escudo do Mestre.', 'warning');
+  let channel = shieldChannels.get(sessionId);
+  if (!channel && 'BroadcastChannel' in window) {
+    channel = new BroadcastChannel(`pela-realidade-shield:${token}`);
+    channel.addEventListener('message', event => {
+      if (event.data?.type === 'stage-request') channel.postMessage({ type: 'stage-state', state: stageSnapshot(sessionId, token) });
+      if (event.data?.type === 'stage-state' && event.data.state) commitAndSync(data => { const target = data.sessions.find(item => item.id === sessionId); if (target) target.stage = { scenes: event.data.state.scenes || [], activeSceneId: event.data.state.activeSceneId || '', audio: event.data.state.audio || { music: null, effects: [] }, transcription: event.data.state.transcription || { status: 'reserved', text: '' } }; });
+      if (event.data?.type === 'audio-upload-request') void uploadStageAudio(sessionId, event.data).catch(error => toast(error.message, 'error'));
+    });
+    shieldChannels.set(sessionId, channel);
+  }
+  setTimeout(() => channel?.postMessage({ type: 'stage-state', state: stageSnapshot(sessionId, token) }), 250);
 }
 
 function renderLogin(message = '', username = '') {
@@ -899,7 +945,7 @@ document.addEventListener('click',event=>{
         if(item.id===id||(activate&&item.campaignId===session.campaignId))item.updatedAt=now;
       }
     });
-    if(ok){toast(activate?'Sessão iniciada. Jogadores vinculados verão somente a própria ficha.':'Sessão encerrada. Os jogadores voltarão à tela de espera.');render();}
+    if(ok){toast(activate?'Sessão iniciada. Jogadores vinculados verão somente a própria ficha.':'Sessão encerrada. Os jogadores voltarão à tela de espera.');render();if(activate)openMasterShield(id);}
     else toast('Não foi possível atualizar o estado da sessão.','error');
     return;
   }
@@ -1089,7 +1135,7 @@ document.addEventListener('submit',event=>{
     const record={id:id||uid(),name:String(fd.get('name')||'').trim(),playerNote:String(fd.get('playerNote')||'').trim(),playerName,portrait,origin:String(fd.get('origin')||'').trim(),className:String(fd.get('className')||'').trim(),path:String(fd.get('path')||'').trim(),nex:String(fd.get('nex')||'').trim(),rank:String(fd.get('rank')||'').trim(),pv:String(fd.get('pv')||'').trim(),pvMax:String(fd.get('pvMax')||'').trim(),pe:String(fd.get('pe')||'').trim(),peMax:String(fd.get('peMax')||'').trim(),san:String(fd.get('san')||'').trim(),sanMax:String(fd.get('sanMax')||'').trim(),defense:String(fd.get('defense')||'').trim(),attributes,skills:String(fd.get('skills')||'').trim(),abilities:old?.abilities??'',inventory:old?.inventory??'',rituals:String(fd.get('rituals')||'').trim(),description:old?.description??'',progress:String(fd.get('progress')||'').trim(),notes:old?.notes??'',campaignIds,createdAt:old?.createdAt||now,updatedAt:now,ownerId,createdBy:old?.createdBy||currentUser.id};
     ok=commitAndSync(d=>{const index=d.characters.findIndex(x=>x.id===id);if(index>=0)d.characters[index]=record;else d.characters.push(record);});success=id?'Ficha atualizada.':'Ficha criada.';
   } else if(form.querySelector('[name="campaignId"]')) {
-    const old=getState().sessions.find(x=>x.id===id);const status=String(fd.get('status')||'Planejada');const atmosphere=String(fd.get('atmosphere')||'purple-red');const record={id:id||uid(),campaignId:String(fd.get('campaignId')),title:String(fd.get('title')||'').trim(),date:String(fd.get('date')||''),description:String(fd.get('description')||'').trim(),status,isLive:old?.isLive===true&&status==='Planejada',atmosphere:SESSION_ATMOSPHERES.some(([value])=>value===atmosphere)?atmosphere:'purple-red',notes:String(fd.get('notes')||'').trim(),createdAt:old?.createdAt||now,updatedAt:now,createdBy:old?.createdBy||currentUser.id};
+    const old=getState().sessions.find(x=>x.id===id);const status=String(fd.get('status')||'Planejada');const atmosphere=String(fd.get('atmosphere')||'purple-red');const record={id:id||uid(),campaignId:String(fd.get('campaignId')),title:String(fd.get('title')||'').trim(),date:String(fd.get('date')||''),description:String(fd.get('description')||'').trim(),status,isLive:old?.isLive===true&&status==='Planejada',atmosphere:SESSION_ATMOSPHERES.some(([value])=>value===atmosphere)?atmosphere:'purple-red',notes:String(fd.get('notes')||'').trim(),stage:old?.stage||stageDefault(),createdAt:old?.createdAt||now,updatedAt:now,createdBy:old?.createdBy||currentUser.id};
     if(!['Planejada','Realizada','Cancelada'].includes(record.status)){toast('Estado inválido.','error');return;}
     ok=commitAndSync(d=>{if(!d.campaigns.some(c=>c.id===record.campaignId))throw new Error('Campanha não encontrada.');const index=d.sessions.findIndex(x=>x.id===id);if(index>=0)d.sessions[index]=record;else d.sessions.push(record);});success=id?'Sessão atualizada.':'Sessão criada.';
   }

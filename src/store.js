@@ -3,6 +3,15 @@ const EMPTY = () => ({ version: 1, campaigns: [], characters: [], sessions: [], 
 const ATTRIBUTES = ['Agilidade', 'Força', 'Intelecto', 'Presença', 'Vigor'];
 const INVENTORY_CATEGORIES = ['0', 'I', 'II', 'III', 'IV'];
 const SESSION_ATMOSPHERES = ['black-white', 'purple-red'];
+function normalizeStage(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const scenes = array(source.scenes).filter(scene => scene && typeof scene === 'object').slice(0, 100).map(scene => ({
+    id: text(scene.id || uid(), 128), title: text(scene.title, 140), description: text(scene.description, 20000), image: text(scene.image, 2000), effect: text(scene.effect, 80)
+  }));
+  const music = source.audio?.music && typeof source.audio.music === 'object' ? { url: text(source.audio.music.url, 2000), name: text(source.audio.music.name, 180), volume: numeric(source.audio.music.volume, 70, 0, 100), fade: source.audio.music.fade !== false } : null;
+  const effects = array(source.audio?.effects).filter(effect => effect && typeof effect === 'object').slice(0, 100).map(effect => ({ id: text(effect.id || uid(), 128), url: text(effect.url, 2000), name: text(effect.name, 180), volume: numeric(effect.volume, 80, 0, 100) }));
+  return { scenes, activeSceneId: scenes.some(scene => scene.id === source.activeSceneId) ? text(source.activeSceneId, 128) : '', audio: { music, effects }, transcription: { status: 'reserved', text: '' } };
+}
 let state = EMPTY();
 let storageKey = STORAGE_KEY;
 let legacyState = EMPTY();
@@ -60,7 +69,7 @@ function normalize(value) {
     status: ['Planejada', 'Realizada', 'Cancelada'].includes(row.status) ? row.status : 'Planejada',
     isLive: row.isLive === true, atmosphere: SESSION_ATMOSPHERES.includes(row.atmosphere) ? row.atmosphere : 'purple-red',
     notes: text(row.notes), createdAt: text(row.createdAt, 80), updatedAt: text(row.updatedAt, 80),
-    createdBy: text(row.createdBy, 128)
+    createdBy: text(row.createdBy, 128), stage: normalizeStage(row.stage)
   }));
   const boards = {};
   if (value.boards && typeof value.boards === 'object' && !Array.isArray(value.boards)) {
