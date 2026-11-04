@@ -71,6 +71,21 @@ async function uploadStageAudio(sessionId, request) {
   if (request.kind === 'music') stage.audio.music = track;
   else stage.audio.effects = [...(stage.audio.effects || []), track];
   commitAndSync(next => { const target = next.sessions.find(item => item.id === sessionId); if (target) target.stage = stage; });
+  const token = localStorage.getItem(`pela-realidade:shield-token:${sessionId}`) || '';
+  shieldChannels.get(sessionId)?.postMessage({ type: 'stage-state', state: stageSnapshot(sessionId, token) });
+}
+async function uploadStageImage(sessionId, request, sourceWindow = null) {
+  if (!currentClient || !currentUser || !request?.buffer) throw new Error('A sessão autenticada do mestre não está disponível.');
+  if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'].includes(request.mime)) throw new Error('Formato de imagem não permitido.');
+  if (request.buffer.byteLength > 5 * 1024 * 1024) throw new Error('A imagem deve ter no máximo 5 MB.');
+  const extension = (String(request.name || 'scene').split('.').pop() || 'img').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'img';
+  const path = `${currentUser.id}/scenes/${sessionId}/${uid()}.${extension}`;
+  const { error } = await currentClient.storage.from('user-media').upload(path, request.buffer, { contentType: request.mime, cacheControl: '31536000', upsert: false });
+  if (error) throw new Error(`Não foi possível enviar a imagem da cena: ${error.message}`);
+  const { data } = currentClient.storage.from('user-media').getPublicUrl(path);
+  const message = { type: 'scene-image-result', sceneId: request.sceneId, url: data.publicUrl };
+  sourceWindow?.postMessage(message, location.origin);
+  shieldChannels.get(sessionId)?.postMessage(message);
 }
 function openMasterShield(sessionId) {
   const session = getState().sessions.find(item => item.id === sessionId);
@@ -86,9 +101,18 @@ function openMasterShield(sessionId) {
     channel.addEventListener('message', event => {
       if (event.data?.type === 'stage-request') channel.postMessage({ type: 'stage-state', state: stageSnapshot(sessionId, token) });
       if (event.data?.type === 'stage-state' && event.data.state) commitAndSync(data => { const target = data.sessions.find(item => item.id === sessionId); if (target) target.stage = { scenes: event.data.state.scenes || [], activeSceneId: event.data.state.activeSceneId || '', audio: event.data.state.audio || { music: null, effects: [] }, transcription: event.data.state.transcription || { status: 'reserved', text: '' } }; });
-      if (event.data?.type === 'audio-upload-request') void uploadStageAudio(sessionId, event.data).catch(error => toast(error.message, 'error'));
     });
     shieldChannels.set(sessionId, channel);
+  }
+  if (!channel?._directMessageBound) {
+    const directMessageHandler = event => {
+      if (event.origin !== location.origin || event.data?.token !== token) return;
+      const request = event.data;
+      if (request.type === 'audio-upload-request') void uploadStageAudio(sessionId, request).catch(error => toast(error.message, 'error'));
+      if (request.type === 'scene-image-request') void uploadStageImage(sessionId, request, event.source).catch(error => toast(error.message, 'error'));
+    };
+    window.addEventListener('message', directMessageHandler);
+    if (channel) channel._directMessageBound = true;
   }
   setTimeout(() => channel?.postMessage({ type: 'stage-state', state: stageSnapshot(sessionId, token) }), 250);
 }

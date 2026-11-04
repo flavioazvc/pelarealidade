@@ -6,7 +6,7 @@ values (
   'session-audio',
   true,
   52428800,
-  array['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/mp4', 'audio/aac', 'audio/flac']::text[]
+  array['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/ogg', 'audio/webm', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/x-aac', 'audio/flac', 'audio/x-flac', 'audio/3gpp', 'audio/vnd.wave']::text[]
 )
 on conflict (id) do update set
   public = excluded.public,
