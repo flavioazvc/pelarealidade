@@ -23,7 +23,7 @@ create policy user_media_insert_own
   to authenticated
   with check (
     bucket_id = 'user-media'
-    and owner_id = (select auth.uid())
+    and owner_id = (select auth.uid())::text
   );
 
 create policy user_media_update_own
@@ -32,11 +32,11 @@ create policy user_media_update_own
   to authenticated
   using (
     bucket_id = 'user-media'
-    and owner_id = (select auth.uid())
+    and owner_id = (select auth.uid())::text
   )
   with check (
     bucket_id = 'user-media'
-    and owner_id = (select auth.uid())
+    and owner_id = (select auth.uid())::text
   );
 
 create policy user_media_delete_own
@@ -45,7 +45,7 @@ create policy user_media_delete_own
   to authenticated
   using (
     bucket_id = 'user-media'
-    and owner_id = (select auth.uid())
+    and owner_id = (select auth.uid())::text
   );
 
 commit;
